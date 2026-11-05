@@ -9,14 +9,7 @@
     <meta property="og:description" content="Build your own planners, track what matters and see real progress." />
     <meta name="theme-color" content="#1FAD82" />
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
-    <script>
-      // Applies the saved theme before first paint, to avoid a flash of the wrong colors.
-      try {
-        var t = localStorage.getItem("lifeos.theme");
-        var dark = t === "dark" || ((!t || t === "system") && matchMedia("(prefers-color-scheme: dark)").matches);
-        document.documentElement.classList.toggle("dark", dark);
-      } catch (e) {}
-    </script>
+    <script src="/theme.js"></script>
   </head>
   <body>
     <div id="root"></div>

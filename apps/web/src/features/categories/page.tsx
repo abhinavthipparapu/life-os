@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api, messageOf } from "@/app/api";
 import type { Category } from "@/app/types";
+import { NativeSelect } from "@/components/common/forms";
 import { EmptyState, ErrorState, PageHeader, PageSkeleton } from "@/components/common/states";
 
 function CategoryCard({ category, index, total, move }: { category: Category; index: number; total: number; move: (from: number, to: number) => void }) {
@@ -25,6 +26,7 @@ function CategoryCard({ category, index, total, move }: { category: Category; in
   return (
     <div className="card-surface flex items-center gap-2 p-2">
       <GripVertical aria-hidden className="size-5 shrink-0 cursor-grab text-ink-muted" />
+      {category.parentId && <span className="shrink-0 text-xs text-ink-muted">Nested</span>}
       <input
         type="color"
         aria-label={`Color for ${category.name}`}
@@ -46,6 +48,7 @@ export function CategoriesPage() {
   const [reorder] = api.useReorderCategoriesMutation();
   const [order, setOrder] = useState<Category[]>([]);
   const [name, setName] = useState("");
+  const [parentId, setParentId] = useState("");
   useEffect(() => setOrder(data ?? []), [data]);
 
   const persist = (next: Category[]) => void reorder(next.map((c) => c.id));
@@ -60,7 +63,7 @@ export function CategoriesPage() {
     e.preventDefault();
     if (!name.trim()) return;
     try {
-      await create({ name: name.trim() }).unwrap();
+      await create({ name: name.trim(), parentId: parentId || null }).unwrap();
       setName("");
     } catch (err) {
       toast.error(messageOf(err));
@@ -72,6 +75,12 @@ export function CategoriesPage() {
       <PageHeader title="Categories" description="Organize planners however you think about your life." />
       <form onSubmit={(e) => void submit(e)} className="mb-4 flex gap-2">
         <Input aria-label="New category name" placeholder="New category" value={name} onChange={(e) => setName(e.target.value)} />
+        {(data?.length ?? 0) > 0 && (
+          <NativeSelect aria-label="Parent category" className="w-40" value={parentId} onChange={(e) => setParentId(e.target.value)}>
+            <option value="">No parent</option>
+            {data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </NativeSelect>
+        )}
         <Button type="submit" disabled={creating || !name.trim()}>Add</Button>
       </form>
       {isLoading && <PageSkeleton />}

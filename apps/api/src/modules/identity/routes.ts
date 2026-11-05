@@ -21,13 +21,29 @@ export function identityRoutes({ prisma, rateLimitStore }: Deps) {
       return request;
     });
 
+  /** Metadata only, at most hourly per device, so a user can see where they are signed in. */
+  const touchSession = async (id: string, userAgent: string | null) => {
+    const hourAgo = new Date(Date.now() - 3_600_000);
+    const { count } = await prisma.userSession.updateMany({
+      where: { userId: id, userAgent, lastSeenAt: { lt: hourAgo } },
+      data: { lastSeenAt: new Date() },
+    });
+    if (count > 0) return;
+    const existing = await prisma.userSession.count({ where: { userId: id, userAgent } });
+    if (existing === 0) await prisma.userSession.create({ data: { userId: id, userAgent } });
+  };
+
   const getProfile = (id: string) =>
     prisma.profile.findUniqueOrThrow({
       where: { authUserId: id },
       include: { preferences: true },
     });
 
-  router.get("/me", async (req, res) => send(res, await getProfile(userId(req))));
+  router.get("/me", async (req, res) => {
+    const id = userId(req);
+    await touchSession(id, req.get("user-agent")?.slice(0, 200) ?? null);
+    send(res, await getProfile(id));
+  });
 
   router.patch("/me", async (req, res) => {
     const id = userId(req);

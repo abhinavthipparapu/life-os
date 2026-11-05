@@ -39,6 +39,7 @@ const lines = [
   `WEB_ORIGIN=http://localhost:5173`,
   `API_PORT=4000`,
   `SUPABASE_SERVICE_ROLE_KEY=${body}.${signature}`,
+  `SEED_DEMO_PASSWORD=${secret(12)}`,
   `AI_PROVIDER=mock`,
   `VITE_API_URL=http://localhost:4000`,
   `VITE_SUPABASE_URL=http://127.0.0.1:54321`,

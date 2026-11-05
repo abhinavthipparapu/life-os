@@ -159,6 +159,16 @@ describe("analytics", () => {
     expect(res.adherence).toBe(1);
     expect(res.to).toBe(today);
   });
+  it("treats today's unfinished tasks as not yet missed, until the day has passed", async () => {
+    const u = await h.user();
+    const { task: t } = await dailyTask(u);
+    await backdated(t.id, u.id, -1, "completed");
+    const res = (await u.get(`/api/v1/analytics/adherence?from=${shift(-1)}&to=${today}`)).body.data;
+    expect(res).toMatchObject({ eligible: 1, completed: 1, adherence: 1 });
+    const series = await query(u, { source: "occurrences", measure: "adherence", from: today, to: today });
+    expect(series.body.data[0].value).toBeNull();
+    expect((await u.get("/api/v1/home")).body.data.counts.eligible).toBe(1);
+  });
   it("returns bucketed series for occurrences and metrics", async () => {
     const u = await h.user();
     const { task: t } = await dailyTask(u);

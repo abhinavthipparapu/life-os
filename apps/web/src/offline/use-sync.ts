@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, messageOf } from "@/app/api";
 import { store, ui, useAppDispatch, useAppSelector, type Celebration } from "@/app/store";
 import type { Occurrence } from "@/app/types";
+import { addDays, browserTimezone, localToday } from "@/lib/dates";
 import type { CachedOccurrence } from "./db";
 import { enqueueOccurrenceAction, listQueue, readOccurrences, replaceRange } from "./queue";
 import { replayQueue } from "./sync";
@@ -34,6 +35,18 @@ export async function syncNow() {
   }
 }
 
+const PREFETCH_DAYS = 14;
+
+async function prefetchUpcoming() {
+  if (!navigator.onLine) return;
+  const from = localToday(browserTimezone());
+  const to = addDays(from, PREFETCH_DAYS);
+  const request = store.dispatch(api.endpoints.occurrences.initiate({ from, to }));
+  const result = await request;
+  request.unsubscribe();
+  if (result.data) await replaceRange(from, to, result.data as CachedOccurrence[]);
+}
+
 export function useSyncEngine() {
   const dispatch = useAppDispatch();
   useEffect(() => {
@@ -48,7 +61,7 @@ export function useSyncEngine() {
     window.addEventListener("online", online);
     window.addEventListener("offline", offline);
     document.addEventListener("visibilitychange", visible);
-    void refreshCount().then(syncNow);
+    void refreshCount().then(syncNow).then(prefetchUpcoming);
     return () => {
       window.removeEventListener("online", online);
       window.removeEventListener("offline", offline);

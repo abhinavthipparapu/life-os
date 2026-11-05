@@ -6,7 +6,7 @@ import type { ComponentProps, ReactNode } from "react";
 export function NativeSelect({ className, ...props }: ComponentProps<"select">) {
   return (
     <select
-      className={cn("h-11 w-full rounded-xl border border-input bg-surface px-3 text-base text-ink md:text-sm", className)}
+      className={cn("h-11 w-full rounded-lg border border-input bg-surface px-3 text-base text-ink md:text-sm", className)}
       {...props}
     />
   );

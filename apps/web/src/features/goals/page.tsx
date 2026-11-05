@@ -75,7 +75,7 @@ function GoalCard({ goal }: { goal: Goal }) {
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="font-medium">{goal.title}</h3>
-          <p className="text-sm text-ink-muted capitalize">{goal.period}: {goal.current} of {goal.target} {goal.metric?.unit ?? ""}</p>
+          <p className="text-sm text-ink-muted"><span className="capitalize">{goal.period}</span>: {goal.current} of {goal.target} {goal.metric?.unit ?? ""}</p>
         </div>
         <Button variant="ghost" size="icon-sm" aria-label={`Archive ${goal.title}`} onClick={() => void archive(goal.id)}><Archive aria-hidden className="size-4" /></Button>
       </div>

@@ -10,6 +10,7 @@ import { LineChart } from "@lifeos/ui/components/charts/line-chart";
 import { ChartTooltip } from "@lifeos/ui/components/charts/tooltip";
 import { XAxis } from "@lifeos/ui/components/charts/x-axis";
 import { Skeleton } from "@lifeos/ui/components/skeleton";
+import { curveMonotoneX } from "@lifeos/ui/lib/curves";
 import { useMemo, useState } from "react";
 import type { QuerySpec } from "@lifeos/contracts";
 import { api } from "@/app/api";
@@ -44,69 +45,114 @@ export function AccessibleDataTable({ points, measure, caption }: { points: Seri
   );
 }
 
-function toColumns(points: SeriesPoint[]): HeatmapColumn[] {
-  const columns = new Map<number, HeatmapColumn>();
-  for (const p of points) {
-    const date = new Date(`${p.bucket}T00:00:00Z`);
-    const week = Math.floor((date.getTime() / 86_400_000 + 3) / 7);
-    const column = columns.get(week) ?? { bin: columns.size, bins: [] };
-    column.bins.push({ bin: date.getUTCDay(), count: p.value ?? 0, date });
-    columns.set(week, column);
+const HEATMAP_WEEKS = 26;
+const DAY_MS = 86_400_000;
+
+/** Always lays out full weeks up to the latest day, so quiet days appear as empty cells. */
+export function toColumns(points: SeriesPoint[]): HeatmapColumn[] {
+  const last = points[points.length - 1];
+  if (!last) return [];
+  const counts = new Map(points.map((p) => [p.bucket.slice(0, 10), p.value ?? 0]));
+  const end = new Date(`${last.bucket.slice(0, 10)}T00:00:00Z`);
+  const start = new Date(end.getTime() - (end.getUTCDay() + (HEATMAP_WEEKS - 1) * 7) * DAY_MS);
+  const columns: HeatmapColumn[] = [];
+  for (let week = 0; week < HEATMAP_WEEKS; week += 1) {
+    const bins = [];
+    for (let day = 0; day < 7; day += 1) {
+      const date = new Date(start.getTime() + (week * 7 + day) * DAY_MS);
+      if (date > end) break;
+      bins.push({ bin: day, count: counts.get(date.toISOString().slice(0, 10)) ?? 0, date });
+    }
+    columns.push({ bin: week, bins });
   }
-  return [...columns.values()];
+  return columns;
 }
+
+const HEATMAP_LEVELS = [
+  "var(--surface-2)",
+  "color-mix(in srgb, var(--primary-bright) 35%, var(--surface-2))",
+  "color-mix(in srgb, var(--primary-bright) 60%, var(--surface-2))",
+  "color-mix(in srgb, var(--primary-bright) 80%, var(--surface-2))",
+  "var(--primary-bright)",
+] as const;
 
 export function Heatmap({ points }: { points: SeriesPoint[] }) {
   const { reduced } = useExperience();
-  const data = useMemo(() => toColumns(points), [points]);
+  // The chart colors cells by levels 0 to 4. Levels are relative to this user's busiest day,
+  // since a great day may be 3 tasks for one person and 30 for another.
+  const data = useMemo(() => {
+    const peak = Math.max(1, ...points.map((p) => p.value ?? 0));
+    return toColumns(points).map((column) => ({
+      ...column,
+      bins: column.bins.map((b) => ({ ...b, count: Math.ceil((b.count / peak) * 4) })),
+    }));
+  }, [points]);
   if (data.length === 0) return <p className="py-8 text-center text-sm text-ink-muted">No data in this range.</p>;
   return (
-    <HeatmapChart data={data} layout="fluid" animate={!reduced}>
-      <HeatmapCells />
-    </HeatmapChart>
+    <div className="max-w-full overflow-x-auto">
+      <HeatmapChart data={data} layout="fluid" binSize={16} gap={3} levelColors={HEATMAP_LEVELS} animate={!reduced}>
+        <HeatmapCells />
+      </HeatmapChart>
+    </div>
   );
 }
 
 export function ChartView({ type, points, measure }: { type: Widget["chartType"]; points: SeriesPoint[]; measure: string }) {
   const { reduced } = useExperience();
+  // A period with nothing eligible has no value. Drawing it as zero would invent a failure.
+  const known = useMemo(() => points.filter((p) => p.value !== null), [points]);
   const data = useMemo(
-    () => points.map((p) => ({ date: new Date(`${p.bucket}T00:00:00Z`), value: p.value ?? 0, label: formatDate(p.bucket) })),
-    [points],
+    () => known.map((p) => ({ date: new Date(`${p.bucket}T00:00:00Z`), value: p.value!, label: formatDate(p.bucket) })),
+    [known],
   );
-  if (points.length === 0) return <p className="py-8 text-center text-sm text-ink-muted">No data in this range.</p>;
-  if (type === "stat") {
-    const last = points[points.length - 1]!;
-    return <p className="py-6 text-center text-4xl font-semibold">{display(last.value, measure)}</p>;
-  }
-  if (type === "heatmap") return <Heatmap points={points} />;
+  if (known.length === 0) return <p className="py-8 text-center text-sm text-ink-muted">No data in this range.</p>;
+  if (type === "stat") return <p className="py-6 text-center text-4xl font-semibold">{display(known[known.length - 1]!.value, measure)}</p>;
+  if (type === "heatmap") return <Heatmap points={known} />;
   const duration = reduced ? 0 : 600;
+  const max = isPercent(measure) ? 1 : undefined;
+  const values = known.map((p) => p.value!);
+  const range = (
+    <p className="mt-1 text-xs text-ink-muted">
+      Lowest {display(Math.min(...values), measure)}, highest {display(Math.max(...values), measure)}
+      {isPercent(measure) && type === "line" ? ". Scale runs from 0% to 100%." : ""}
+    </p>
+  );
   if (type === "bar") {
     return (
-      <BarChart data={data} xDataKey="label" aspectRatio="2 / 1" animationDuration={duration}>
-        <Grid horizontal />
-        <Bar dataKey="value" animate={!reduced} />
-        <BarXAxis />
-        <ChartTooltip />
-      </BarChart>
+      <>
+        <BarChart data={data} xDataKey="label" aspectRatio="2 / 1" animationDuration={duration}>
+          <Grid horizontal />
+          <Bar dataKey="value" animate={!reduced} />
+          <BarXAxis />
+          <ChartTooltip />
+        </BarChart>
+        {range}
+      </>
     );
   }
   if (type === "area") {
     return (
-      <AreaChart data={data} aspectRatio="2 / 1" animationDuration={duration}>
-        <Grid horizontal />
-        <Area dataKey="value" animate={!reduced} />
-        <XAxis />
-        <ChartTooltip />
-      </AreaChart>
+      <>
+        <AreaChart data={data} aspectRatio="2 / 1" animationDuration={duration}>
+          <Grid horizontal />
+          <Area dataKey="value" curve={curveMonotoneX} animate={!reduced} />
+          <XAxis />
+          <ChartTooltip />
+        </AreaChart>
+        {range}
+      </>
     );
   }
   return (
-    <LineChart data={data} aspectRatio="2 / 1" animationDuration={duration}>
-      <Grid horizontal />
-      <Line dataKey="value" animate={!reduced} />
-      <XAxis />
-      <ChartTooltip />
-    </LineChart>
+    <>
+      <LineChart data={data} aspectRatio="2 / 1" animationDuration={duration} yScaleDomainMax={max}>
+        <Grid horizontal />
+        <Line dataKey="value" curve={curveMonotoneX} animate={!reduced} />
+        <XAxis />
+        <ChartTooltip />
+      </LineChart>
+      {range}
+    </>
   );
 }
 

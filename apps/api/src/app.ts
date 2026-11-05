@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import cors from "cors";
 import express, { Router } from "express";
 import helmet from "helmet";
@@ -30,9 +31,17 @@ export function createApp(deps: Deps) {
   app.use(helmet());
   app.use(cors({ origin: env.WEB_ORIGIN.split(","), credentials: false, maxAge: 600 }));
   app.use(express.json({ limit: "256kb" }));
+  // Echoed to the client, so a user's error report can be matched to server logs.
+  app.use((req, res, next) => {
+    const id = /^[\w-]{8,64}$/.test(req.get("x-request-id") ?? "") ? req.get("x-request-id")! : randomUUID();
+    res.setHeader("x-request-id", id);
+    req.requestId = id;
+    next();
+  });
   if (env.NODE_ENV !== "test") {
     app.use(
       pinoHttp({
+        genReqId: (req) => (req as express.Request).requestId ?? randomUUID(),
         redact: ["req.headers.authorization", "req.headers.cookie"],
         customProps: (req) => ({ userId: (req as express.Request).user?.id }),
       }),

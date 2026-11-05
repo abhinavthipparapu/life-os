@@ -4,7 +4,7 @@ import type { PrismaClient } from "@lifeos/db";
 import { notFound } from "../../shared/http.js";
 import { dailyCounts, metricBuckets, occurrenceBuckets, type ScopeFilter } from "@lifeos/domain";
 
-const DENOMINATOR = "completed + missed; skipped, rest and not-applicable excluded";
+const DENOMINATOR = "completed + missed; skipped, rest, not-applicable and unfinished tasks for today excluded";
 
 export async function userTimezone(prisma: PrismaClient, userId: string) {
   const p = await prisma.profile.findUniqueOrThrow({ where: { authUserId: userId }, select: { timezone: true } });
@@ -35,7 +35,7 @@ export function analyticsService(prisma: PrismaClient) {
       // Future occurrences have not happened yet, so they must not lower adherence.
       const today = localDateOf(new Date(), timezone);
       const to = spec.to < today ? spec.to : today;
-      const rows = spec.from > to ? [] : await occurrenceBuckets(prisma, userId, spec.from, to, spec.grain, spec);
+      const rows = spec.from > to ? [] : await occurrenceBuckets(prisma, userId, spec.from, to, spec.grain, spec, today);
       const points = rows.map((r) => {
         const value =
           spec.measure === "adherence"
@@ -55,7 +55,7 @@ export function analyticsService(prisma: PrismaClient) {
       const timezone = await userTimezone(prisma, userId);
       const today = localDateOf(new Date(), timezone);
       const end = to < today ? to : today;
-      const rows = from > end ? [] : await occurrenceBuckets(prisma, userId, from, end, "day", scope);
+      const rows = from > end ? [] : await occurrenceBuckets(prisma, userId, from, end, "day", scope, today);
       const totals = rows.reduce(
         (a, r) => ({
           eligible: a.eligible + r.eligible,

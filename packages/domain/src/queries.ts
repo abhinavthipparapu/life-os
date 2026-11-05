@@ -44,13 +44,15 @@ export async function occurrenceBuckets(
   to: string,
   grain: keyof typeof GRAIN_SQL,
   scope: ScopeFilter = {},
+  /** Pending rows on or after this date are not yet misses, so they stay out of the denominator. */
+  pendingBefore?: string,
 ): Promise<OccurrenceBucket[]> {
   const rows = await db.$queryRaw<
     { bucket: string; completed: bigint; pending: bigint; skipped: bigint; rest: bigint; na: bigint }[]
   >(Prisma.sql`
     SELECT to_char(date_trunc(${GRAIN_SQL[grain]}, o.date), 'YYYY-MM-DD') AS bucket,
       COUNT(*) FILTER (WHERE o.status = 'completed') AS completed,
-      COUNT(*) FILTER (WHERE o.status = 'pending') AS pending,
+      COUNT(*) FILTER (WHERE o.status = 'pending' ${pendingBefore ? Prisma.sql`AND o.date < ${pendingBefore}::date` : Prisma.empty}) AS pending,
       COUNT(*) FILTER (WHERE o.status = 'skipped') AS skipped,
       COUNT(*) FILTER (WHERE o.status = 'rest') AS rest,
       COUNT(*) FILTER (WHERE o.status = 'not_applicable') AS na
