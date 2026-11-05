@@ -21,7 +21,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:validate": "prisma validate",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "check:deps": "node infra/scripts/check-deps.mjs"
   },
   "devDependencies": {
     "prisma": "7.10.1",

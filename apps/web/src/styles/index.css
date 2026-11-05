@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+@source "../../../../packages/ui/src";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Design tokens from blueprint section 2. */
+:root {
+  --canvas: #f5f7fb;
+  --surface: #ffffff;
+  --surface-2: #f0f3f9;
+  --line: #d5dbe7;
+  --ink: #16202e;
+  --ink-muted: #55617a;
+  --primary: #128a67; /* Darkened from #1FAD82 so white text reaches AA contrast. */
+  --primary-bright: #1fad82;
+  --primary-soft: #dff5ee;
+  --focus: #7468e8;
+  --reward: #f2b84a;
+  --reward-soft: #fdf3dc;
+  --danger: #c0352b;
+  --danger-soft: #fce8e6;
+  --shadow-1: 0 1px 2px rgb(22 32 46 / 6%);
+  --shadow-2: 0 4px 12px rgb(22 32 46 / 8%), 0 1px 2px rgb(22 32 46 / 4%);
+  --shadow-3: 0 16px 40px rgb(22 32 46 / 14%);
+
+  /* Names expected by the shadcn and Bklit components. */
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--ink);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--ink);
+  --primary-foreground: #ffffff;
+  --destructive: var(--danger);
+  --border: var(--line);
+  --input: #8a95ab;
+  --ring: var(--focus);
+  --radius: 0.75rem;
+  --chart-1: #1fad82;
+  --chart-2: #7468e8;
+  --chart-3: #f2b84a;
+  --chart-4: #e0689b;
+  --chart-5: #3b9fd8;
+  --chart-line-primary: #1fad82;
+  --chart-line-secondary: #7468e8;
+  --chart-grid: var(--line);
+  --chart-label: var(--ink-muted);
+  --chart-background: var(--surface);
+  --chart-foreground-muted: var(--ink-muted);
+  --chart-tooltip-background: var(--surface);
+}
+
+.dark {
+  --canvas: #101722;
+  --surface: #182332;
+  --surface-2: #213044;
+  --line: #34465e;
+  --ink: #edf1f7;
+  --ink-muted: #a9b5c8;
+  --primary: #2cc598;
+  --primary-bright: #2cc598;
+  --primary-soft: #143a33;
+  --focus: #a59cf5;
+  --reward-soft: #3d3016;
+  --danger: #f0897f;
+  --danger-soft: #41211f;
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 30%);
+  --shadow-2: 0 4px 12px rgb(0 0 0 / 35%);
+  --shadow-3: 0 16px 40px rgb(0 0 0 / 50%);
+  --primary-foreground: #06251c;
+  --input: #6b7c95;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-primary: var(--primary);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-focus: var(--focus);
+  --color-reward: var(--reward);
+  --color-reward-soft: var(--reward-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --shadow-e1: var(--shadow-1);
+  --shadow-e2: var(--shadow-2);
+  --shadow-e3: var(--shadow-3);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background:
+      radial-gradient(1200px 600px at 85% -10%, color-mix(in srgb, var(--primary-bright) 9%, transparent), transparent 60%),
+      radial-gradient(900px 500px at -10% 10%, color-mix(in srgb, var(--focus) 8%, transparent), transparent 55%),
+      var(--canvas);
+    background-attachment: fixed;
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  button,
+  [role="button"],
+  a {
+    touch-action: manipulation;
+  }
+}
+
+/* Layered card with restrained soft elevation. The border keeps it legible without the shadow. */
+@utility card-surface {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, white), var(--surface));
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-2);
+}
+
+/* Tactile accent, used sparingly and never as the only affordance. */
+@utility tactile {
+  box-shadow:
+    var(--shadow-1),
+    inset 0 1px 0 rgb(255 255 255 / 18%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
