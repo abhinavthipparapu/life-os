@@ -1,0 +1,39 @@
+{
+  "name": "@lifeos/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/server.ts",
+    "build": "tsup src/server.ts --format esm --out-dir dist --noExternal @lifeos/contracts --noExternal @lifeos/analytics-core --noExternal @lifeos/db --noExternal @lifeos/domain",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lifeos/analytics-core": "workspace:*",
+    "@lifeos/contracts": "workspace:*",
+    "@lifeos/db": "workspace:*",
+    "cors": "^2.8.6",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.3",
+    "helmet": "^8.3.0",
+    "jose": "^6.2.15",
+    "pino": "^10.4.0",
+    "pino-http": "^11.0.0",
+    "zod": "^4.6.7",
+    "@lifeos/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.0.0",
+    "@types/supertest": "^6.0.3",
+    "dotenv": "^17.0.0",
+    "supertest": "^7.3.1",
+    "tsup": "^9.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.0"
+  }
+}
