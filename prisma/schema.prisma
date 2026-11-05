@@ -1,0 +1,733 @@
+// LifeOS schema (blueprint section 6). Every user-owned row carries user_id so that
+// repositories can scope each query by owner, including nested resources.
+// All instants are UTC timestamptz. Local dates are computed from a stored IANA timezone.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../packages/db/src/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Enums ----------
+enum UserRole {
+  user
+  support
+  admin
+}
+
+enum TaskType {
+  checkbox
+  quantity
+  duration
+  rating
+  text
+}
+
+enum OccurrenceStatus {
+  pending
+  completed
+  skipped
+  rest
+  not_applicable
+}
+
+enum OccurrenceAction {
+  complete
+  skip
+  reopen
+  defer
+}
+
+enum MetricKind {
+  quantity
+  duration
+  boolean
+  rating
+  text
+}
+
+enum Aggregation {
+  sum
+  avg
+  min
+  max
+  last
+  count
+}
+
+enum FieldType {
+  text
+  number
+  boolean
+  date
+  select
+  rating
+}
+
+enum GoalPeriod {
+  daily
+  weekly
+  monthly
+  yearly
+  total
+}
+
+enum TemplateVisibility {
+  private
+  public
+  starter
+}
+
+enum AiDraftStatus {
+  preview
+  applied
+  rejected
+  expired
+}
+
+enum SyncResult {
+  accepted
+  duplicate
+  conflict
+  rejected
+}
+
+enum AccountRequestKind {
+  export
+  deletion
+}
+
+enum AccountRequestStatus {
+  queued
+  processing
+  completed
+  failed
+}
+
+// ---------- Accounts ----------
+model Profile {
+  authUserId  String    @id @map("auth_user_id") @db.Uuid
+  email       String
+  displayName String?   @map("display_name")
+  timezone    String    @default("UTC")
+  role        UserRole  @default(user)
+  accessRevokedAt DateTime? @map("access_revoked_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz
+
+  preferences       Preference?
+  sessions          UserSession[]
+  categories        Category[]
+  planners          Planner[]
+  metricDefinitions MetricDefinition[]
+  metricLogs        MetricLog[]
+  goals             Goal[]
+  templates         Template[]
+  templateInstalls  TemplateInstall[]
+  dashboards        Dashboard[]
+  aiDrafts          AiDraft[]
+  aiUsage           AiUsage[]
+  userAchievements  UserAchievement[]
+  syncOperations    SyncOperation[]
+  pushSubscriptions PushSubscription[]
+  notifications     Notification[]
+  accountRequests   AccountRequest[]
+  tasks             Task[]
+  occurrences       TaskOccurrence[]
+  dailyAggregates   DailyAggregate[]
+
+  @@index([email])
+  @@map("profiles")
+}
+
+model Preference {
+  id                   String   @id @default(uuid()) @db.Uuid
+  userId               String   @unique @map("user_id") @db.Uuid
+  theme                String   @default("system")
+  reducedMotion        Boolean  @default(false) @map("reduced_motion")
+  celebrations         Boolean  @default(true)
+  pushEnabled          Boolean  @default(false) @map("push_enabled")
+  quietHoursStart      String?  @map("quiet_hours_start")
+  quietHoursEnd        String?  @map("quiet_hours_end")
+  aiSensitiveOptIn     Boolean  @default(false) @map("ai_sensitive_opt_in")
+  aiWeeklyReportOptIn  Boolean  @default(false) @map("ai_weekly_report_opt_in")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user Profile @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+
+  @@map("preferences")
+}
+
+// Metadata only: tokens are never stored here.
+model UserSession {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  userAgent  String?  @map("user_agent")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user Profile @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_sessions")
+}
+
+// actorId is deliberately not a foreign key, so the audit trail outlives account deletion.
+model AuditEvent {
+  id            String   @id @default(uuid()) @db.Uuid
+  actorId       String?  @map("actor_id") @db.Uuid
+  action        String
+  entityType    String   @map("entity_type")
+  entityId      String?  @map("entity_id")
+  correlationId String?  @map("correlation_id")
+  metadata      Json?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_events")
+}
+
+model AccountRequest {
+  id          String               @id @default(uuid()) @db.Uuid
+  userId      String               @map("user_id") @db.Uuid
+  kind        AccountRequestKind
+  status      AccountRequestStatus @default(queued)
+  resultJson  Json?                @map("result_json")
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+  completedAt DateTime?            @map("completed_at") @db.Timestamptz
+
+  user Profile @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("account_requests")
+}
+
+// ---------- Organization ----------
+model Category {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  parentId  String?   @map("parent_id") @db.Uuid
+  name      String
+  slug      String
+  color     String    @default("#1FAD82")
+  icon      String    @default("folder")
+  sortOrder Int       @default(0) @map("sort_order")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+
+  user     Profile    @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryTree")
+  planners Planner[]
+
+  @@unique([userId, slug])
+  @@index([userId, sortOrder])
+  @@map("categories")
+}
+
+model Planner {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  categoryId     String?   @map("category_id") @db.Uuid
+  name           String
+  slug           String
+  description    String?
+  timezone       String    @default("UTC")
+  color          String    @default("#1FAD82")
+  icon           String    @default("calendar")
+  progressPolicy Json      @default("{}") @map("progress_policy")
+  isSensitive    Boolean   @default(false) @map("is_sensitive")
+  version        Int       @default(1)
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
+
+  user             Profile           @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+  category         Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  sections         PlannerSection[]
+  tasks            Task[]
+  fieldDefinitions FieldDefinition[]
+  templateInstalls TemplateInstall[]
+
+  @@unique([userId, slug])
+  @@index([userId, createdAt])
+  @@map("planners")
+}
+
+model PlannerSection {
+  id        String    @id @default(uuid()) @db.Uuid
+  plannerId String    @map("planner_id") @db.Uuid
+  name      String
+  position  Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+
+  planner Planner @relation(fields: [plannerId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@index([plannerId, position])
+  @@map("planner_sections")
+}
+
+// ---------- Tasks ----------
+model Task {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  plannerId    String    @map("planner_id") @db.Uuid
+  sectionId    String?   @map("section_id") @db.Uuid
+  parentTaskId String?   @map("parent_task_id") @db.Uuid
+  title        String
+  description  String?
+  type         TaskType  @default(checkbox)
+  targetValue  Float?    @map("target_value")
+  targetUnit   String?   @map("target_unit")
+  sortOrder    Int       @default(0) @map("sort_order")
+  version      Int       @default(1)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz
+
+  user        Profile          @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+  planner     Planner          @relation(fields: [plannerId], references: [id], onDelete: Cascade)
+  section     PlannerSection?  @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  parent      Task?            @relation("TaskTree", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  children    Task[]           @relation("TaskTree")
+  schedules   TaskSchedule[]
+  occurrences TaskOccurrence[]
+  fieldValues FieldValue[]
+
+  @@index([plannerId, sortOrder])
+  @@index([userId])
+  @@index([parentTaskId])
+  @@map("tasks")
+}
+
+model TaskSchedule {
+  id              String    @id @default(uuid()) @db.Uuid
+  taskId          String    @map("task_id") @db.Uuid
+  timezone        String
+  rrule           String
+  slot            String    @default("default")
+  startsOn        DateTime  @map("starts_on") @db.Date
+  endsOn          DateTime? @map("ends_on") @db.Date
+  localTime       String?   @map("local_time")
+  reminderOffsets Int[]     @default([]) @map("reminder_offsets")
+  generatedUntil  DateTime? @map("generated_until") @db.Date
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, slot])
+  @@map("task_schedules")
+}
+
+model TaskOccurrence {
+  id          String           @id @default(uuid()) @db.Uuid
+  userId      String           @map("user_id") @db.Uuid
+  taskId      String           @map("task_id") @db.Uuid
+  slotKey     String           @map("slot_key")
+  date        DateTime         @db.Date
+  scheduledAt DateTime?        @map("scheduled_at") @db.Timestamptz
+  status      OccurrenceStatus @default(pending)
+  value       Float?
+  note        String?
+  version     Int              @default(1)
+  completedAt DateTime?        @map("completed_at") @db.Timestamptz
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  user   Profile     @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+  task   Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  events TaskEvent[]
+
+  @@unique([taskId, slotKey, date])
+  @@index([userId, date])
+  @@map("task_occurrences")
+}
+
+// Append-only audit log of occurrence state changes.
+model TaskEvent {
+  id           String           @id @default(uuid()) @db.Uuid
+  occurrenceId String           @map("occurrence_id") @db.Uuid
+  actorId      String           @map("actor_id") @db.Uuid
+  action       OccurrenceAction
+  reason       String?
+  payload      Json?
+  occurredAt   DateTime         @default(now()) @map("occurred_at") @db.Timestamptz
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  occurrence TaskOccurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+
+  @@index([occurrenceId, createdAt])
+  @@map("task_events")
+}
+
+// ---------- Custom fields ----------
+model FieldDefinition {
+  id             String    @id @default(uuid()) @db.Uuid
+  plannerId      String    @map("planner_id") @db.Uuid
+  key            String
+  label          String
+  type           FieldType
+  validationJson Json      @default("{}") @map("validation_json")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
+
+  planner Planner      @relation(fields: [plannerId], references: [id], onDelete: Cascade)
+  values  FieldValue[]
+
+  @@unique([plannerId, key])
+  @@map("field_definitions")
+}
+
+model FieldValue {
+  id                String   @id @default(uuid()) @db.Uuid
+  taskId            String   @map("task_id") @db.Uuid
+  fieldDefinitionId String   @map("field_definition_id") @db.Uuid
+  valueJson         Json     @map("value_json")
+  // Typed projection, so commonly queried numeric fields can be indexed (section 6.1).
+  valueNumber       Float?   @map("value_number")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  task            Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  fieldDefinition FieldDefinition @relation(fields: [fieldDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, fieldDefinitionId])
+  @@index([fieldDefinitionId, valueNumber])
+  @@map("field_values")
+}
+
+// ---------- Metrics ----------
+model MetricDefinition {
+  id          String      @id @default(uuid()) @db.Uuid
+  userId      String      @map("user_id") @db.Uuid
+  key         String
+  label       String
+  kind        MetricKind
+  unit        String?
+  aggregation Aggregation @default(sum)
+  isSensitive Boolean     @default(false) @map("is_sensitive")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime?   @map("deleted_at") @db.Timestamptz
+
+  user  Profile     @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+  logs  MetricLog[]
+  goals Goal[]
+
+  @@unique([userId, key])
+  @@map("metric_definitions")
+}
+
+model MetricLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  metricId   String   @map("metric_id") @db.Uuid
+  recordedAt DateTime @map("recorded_at") @db.Timestamptz
+  localDate  DateTime @map("local_date") @db.Date
+  value      Float?
+  textValue  String?  @map("text_value")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user   Profile          @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+  metric MetricDefinition @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+  @@index([userId, localDate])
+  @@index([metricId, recordedAt])
+  @@map("metric_logs")
+}
+
+model Goal {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String     @map("user_id") @db.Uuid
+  metricId  String?    @map("metric_id") @db.Uuid
+  title     String
+  target    Float
+  period    GoalPeriod
+  startsOn  DateTime?  @map("starts_on") @db.Date
+  endsOn    DateTime?  @map("ends_on") @db.Date
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime?  @map("deleted_at") @db.Timestamptz
+
+  user       Profile           @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+  metric     MetricDefinition? @relation(fields: [metricId], references: [id], onDelete: SetNull)
+  milestones GoalMilestone[]
+
+  @@index([userId])
+  @@map("goals")
+}
+
+model GoalMilestone {
+  id         String    @id @default(uuid()) @db.Uuid
+  goalId     String    @map("goal_id") @db.Uuid
+  title      String
+  threshold  Float
+  reachedAt  DateTime? @map("reached_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId, threshold])
+  @@map("goal_milestones")
+}
+
+// ---------- Templates ----------
+// ownerId is null for built-in starter templates.
+model Template {
+  id          String             @id @default(uuid()) @db.Uuid
+  ownerId     String?            @map("owner_id") @db.Uuid
+  name        String
+  description String?
+  visibility  TemplateVisibility @default(private)
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime?          @map("deleted_at") @db.Timestamptz
+
+  owner    Profile?          @relation(fields: [ownerId], references: [authUserId], onDelete: Cascade)
+  versions TemplateVersion[]
+
+  @@index([ownerId])
+  @@index([visibility])
+  @@map("templates")
+}
+
+// Immutable once published: rows are only ever inserted.
+model TemplateVersion {
+  id           String   @id @default(uuid()) @db.Uuid
+  templateId   String   @map("template_id") @db.Uuid
+  version      Int
+  snapshotJson Json     @map("snapshot_json")
+  checksum     String
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  template Template          @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  installs TemplateInstall[]
+
+  @@unique([templateId, version])
+  @@map("template_versions")
+}
+
+model TemplateInstall {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  versionId String   @map("version_id") @db.Uuid
+  plannerId String   @map("planner_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user    Profile         @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+  version TemplateVersion @relation(fields: [versionId], references: [id])
+  planner Planner         @relation(fields: [plannerId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("template_installs")
+}
+
+// ---------- Analytics ----------
+model Dashboard {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  name      String
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+
+  user    Profile           @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+  widgets DashboardWidget[]
+
+  @@index([userId])
+  @@map("dashboards")
+}
+
+model DashboardWidget {
+  id            String   @id @default(uuid()) @db.Uuid
+  dashboardId   String   @map("dashboard_id") @db.Uuid
+  title         String
+  chartType     String   @map("chart_type")
+  querySpecJson Json     @map("query_spec_json")
+  layoutJson    Json     @default("{}") @map("layout_json")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@index([dashboardId])
+  @@map("dashboard_widgets")
+}
+
+model DailyAggregate {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  localDate   DateTime @map("local_date") @db.Date
+  metricKey   String   @map("metric_key")
+  value       Float    @default(0)
+  eligible    Int      @default(0)
+  completed   Int      @default(0)
+  skipped     Int      @default(0)
+  rest        Int      @default(0)
+  notApplicable Int    @default(0) @map("not_applicable")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user Profile @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+
+  @@unique([userId, localDate, metricKey])
+  @@map("daily_aggregates")
+}
+
+// ---------- AI and rewards ----------
+model AiDraft {
+  id            String        @id @default(uuid()) @db.Uuid
+  userId        String        @map("user_id") @db.Uuid
+  kind          String        @default("planner")
+  prompt        String
+  validatedJson Json          @map("validated_json")
+  status        AiDraftStatus @default(preview)
+  appliedPlannerId String?    @map("applied_planner_id") @db.Uuid
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  user Profile @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("ai_drafts")
+}
+
+model AiUsage {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  feature   String
+  model     String
+  tokens    Int
+  cost      Decimal  @default(0) @db.Decimal(12, 6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user Profile @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("ai_usage")
+}
+
+model Achievement {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique
+  title       String
+  description String
+  icon        String   @default("award")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  awards UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  achievementId String    @map("achievement_id") @db.Uuid
+  awardedAt     DateTime  @default(now()) @map("awarded_at") @db.Timestamptz
+  celebratedAt  DateTime? @map("celebrated_at") @db.Timestamptz
+
+  user        Profile     @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
+
+// ---------- Offline and operations ----------
+model SyncOperation {
+  id                String     @id @default(uuid()) @db.Uuid
+  userId            String     @map("user_id") @db.Uuid
+  clientOperationId String     @map("client_op_id") @db.Uuid
+  entityType        String     @map("entity_type")
+  entityId          String     @map("entity_id") @db.Uuid
+  action            String
+  result            SyncResult
+  responseJson      Json?      @map("response_json")
+  occurredAt        DateTime   @map("occurred_at") @db.Timestamptz
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  user Profile @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+
+  @@unique([userId, clientOperationId])
+  @@map("sync_operations")
+}
+
+// Written in the same transaction as the change, then consumed by the worker.
+model OutboxEvent {
+  id          BigInt    @id @default(autoincrement())
+  userId      String?   @map("user_id") @db.Uuid
+  type        String
+  payload     Json
+  processedAt DateTime? @map("processed_at") @db.Timestamptz
+  attempts    Int       @default(0)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([processedAt, id])
+  @@map("outbox_events")
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user Profile @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime? @map("read_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user Profile @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// dedupeKey makes reminder delivery safe under at-least-once job execution.
+model JobDeliveryLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String?  @map("user_id") @db.Uuid
+  jobName       String   @map("job_name")
+  jobId         String?  @map("job_id")
+  correlationId String?  @map("correlation_id")
+  dedupeKey     String   @unique @map("dedupe_key")
+  status        String
+  error         String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([jobName, createdAt])
+  @@map("job_delivery_logs")
+}

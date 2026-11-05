@@ -1,0 +1,34 @@
+{
+  "name": "lifeos",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter ./apps/* dev",
+    "build": "pnpm -r build",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "setup:env": "node infra/scripts/setup-env.mjs",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:validate": "prisma validate",
+    "db:seed": "prisma db seed"
+  },
+  "devDependencies": {
+    "prisma": "7.10.1",
+    "dotenv": "^17.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "5.9.3",
+    "prettier": "^3.6.0",
+    "eslint": "^9.39.0",
+    "typescript-eslint": "^8.46.0"
+  }
+}
