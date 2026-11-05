@@ -58,6 +58,7 @@ export async function runDeletion(ctx: JobContext, userId: string) {
     await tx.auditEvent.updateMany({ where: { actorId: userId }, data: { actorId: null } });
     await tx.jobDeliveryLog.updateMany({ where: { userId }, data: { userId: null } });
     await tx.profile.delete({ where: { authUserId: userId } });
+    await tx.deletedAccount.create({ data: { authUserId: userId } });
     await tx.auditEvent.create({ data: { actorId: null, action: "account.deleted", entityType: "profile" } });
   });
 }

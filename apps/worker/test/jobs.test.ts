@@ -197,6 +197,7 @@ describe("account workflows", () => {
     expect(await prisma.task.count({ where: { userId: u } })).toBe(0);
     expect(await prisma.auditEvent.count({ where: { actorId: u } })).toBe(0);
     expect(await prisma.task.count({ where: { userId: other } })).toBe(1);
+    expect(await prisma.deletedAccount.count({ where: { authUserId: u } })).toBe(1);
   });
   it("retries when the auth provider is down, and blocks access meanwhile", async () => {
     const u = await user();

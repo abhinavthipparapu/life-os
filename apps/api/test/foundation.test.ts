@@ -71,6 +71,18 @@ describe("token verification", () => {
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe("access_revoked");
   });
+  it("refuses a still-valid token after its account was deleted, without recreating it", async () => {
+    const u = await h.user();
+    await u.post("/api/v1/categories", { name: "Gone" });
+    await h.prisma.$transaction([
+      h.prisma.profile.delete({ where: { authUserId: u.id } }),
+      h.prisma.deletedAccount.create({ data: { authUserId: u.id } }),
+    ]);
+    const res = await u.get("/api/v1/me");
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("access_revoked");
+    expect(await h.prisma.profile.count({ where: { authUserId: u.id } })).toBe(0);
+  });
   it("ignores client-supplied identity in the body", async () => {
     const [a, b] = [await h.user(), await h.user()];
     await b.get("/api/v1/me");

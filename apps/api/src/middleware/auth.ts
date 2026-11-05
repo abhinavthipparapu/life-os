@@ -64,6 +64,9 @@ async function findOrCreateProfile(prisma: PrismaClient, token: VerifiedToken) {
   const where = { authUserId: token.sub };
   const existing = await prisma.profile.findUnique({ where });
   if (existing) return existing;
+  if (await prisma.deletedAccount.findUnique({ where: { authUserId: token.sub } })) {
+    throw new AppError(403, "access_revoked", "This account has been deleted");
+  }
   try {
     return await prisma.profile.create({
       data: { authUserId: token.sub, email: token.email, preferences: { create: {} } },

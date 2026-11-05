@@ -27,6 +27,11 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, ApiError, object, { en
   if (result.error) {
     const body = result.error.data as ApiEnvelope<unknown> | undefined;
     const status = typeof result.error.status === "number" ? result.error.status : 0;
+    // Revoked or deleted: the local session is dead even though its token has not expired.
+    if (body?.error?.code === "access_revoked") {
+      const { signOut } = await import("@/features/auth/session");
+      void signOut();
+    }
     return {
       error: {
         status,

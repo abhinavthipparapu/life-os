@@ -152,7 +152,7 @@ test("logout wipes cached private data", async ({ page }) => {
   expect(await count()).toBe(0);
 });
 
-test("account deletion needs the password and removes the login", async ({ page }) => {
+test("account deletion needs the password and removes the login", async ({ page, request }) => {
   const email = await signUp(page);
   await page.goto("/app/settings");
   await page.getByRole("button", { name: "Delete my account" }).click();
@@ -164,13 +164,36 @@ test("account deletion needs the password and removes the login", async ({ page 
   await page.getByRole("dialog").getByRole("button", { name: "Delete my account" }).click();
   await expect(page).toHaveURL("/");
 
-  await expect(async () => {
-    await page.goto("/login");
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill(PASSWORD);
-    await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByRole("alert")).toHaveText("Email or password is incorrect.", { timeout: 3000 });
-  }).toPass({ timeout: 40_000 });
+  // The worker removes the login shortly after. Wait for Auth itself to refuse it, then check the UI.
+  await expect
+    .poll(
+      async () =>
+        (await request.post("http://127.0.0.1:54321/auth/v1/token?grant_type=password", { data: { email, password: PASSWORD } })).status(),
+      { timeout: 30_000 },
+    )
+    .toBe(400);
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("alert")).toHaveText("Email or password is incorrect.");
+});
+
+test("a token from a deleted account signs the browser out instead of reviving it", async ({ page, request }) => {
+  await signUp(page);
+  const token = await page.evaluate(() => {
+    const key = Object.keys(localStorage).find((k) => k.endsWith("-auth-token"))!;
+    return (JSON.parse(localStorage.getItem(key)!) as { access_token: string }).access_token;
+  });
+  await page.goto("/app/settings");
+  await page.getByRole("button", { name: "Delete my account" }).click();
+  await page.getByLabel("Your password").fill(PASSWORD);
+  await page.getByLabel("Type DELETE to confirm").fill("DELETE");
+  await page.getByRole("dialog").getByRole("button", { name: "Delete my account" }).click();
+  await expect(page).toHaveURL("/");
+  await expect
+    .poll(async () => (await request.get("http://localhost:4000/api/v1/me", { headers: { Authorization: `Bearer ${token}` } })).status(), { timeout: 30_000 })
+    .toBe(403);
 });
 
 for (const path of ["today", "calendar", "categories", "planners", "planners/new", "templates", "goals", "dashboards", "analytics", "ai", "notifications", "settings"]) {
