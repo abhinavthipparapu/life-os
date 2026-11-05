@@ -56,6 +56,8 @@ services:
       GOTRUE_JWT_KEYS: ${AUTH_JWT_KEYS:?run pnpm setup:env}
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
       GOTRUE_MAILER_AUTOCONFIRM: "false"
+      # Local only, so test suites can sign up repeatedly. Hosted projects keep their own limits.
+      GOTRUE_RATE_LIMIT_EMAIL_SENT: "100000"
       GOTRUE_SMTP_HOST: mailpit
       GOTRUE_SMTP_PORT: "1025"
       GOTRUE_SMTP_ADMIN_EMAIL: no-reply@lifeos.local

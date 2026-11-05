@@ -24,6 +24,7 @@ export function TaskCompletionControl({ occurrence, value }: { occurrence: Occur
     haptic();
     await actOnOccurrence(occurrence, "complete", value === undefined ? {} : { value });
     toast("Marked done", {
+      duration: 8000,
       action: { label: "Undo", onClick: () => void actOnOccurrence({ id: occurrence.id, version: occurrence.version + 1 }, "reopen") },
     });
   };

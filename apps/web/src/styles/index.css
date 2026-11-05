@@ -12,7 +12,7 @@
   --line: #d5dbe7;
   --ink: #16202e;
   --ink-muted: #55617a;
-  --primary: #128a67; /* Darkened from #1FAD82 so white text reaches AA contrast. */
+  --primary: #0e7055; /* Darkened from #1FAD82 so text and buttons pass AA, including hover. */
   --primary-bright: #1fad82;
   --primary-soft: #dff5ee;
   --focus: #7468e8;

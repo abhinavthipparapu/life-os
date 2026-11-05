@@ -16,7 +16,7 @@ createRoot(document.getElementById("root")!).render(
     <Provider store={store}>
       <SessionProvider>
         <RouterProvider router={router} />
-        <Toaster position="top-center" />
+        <Toaster position="top-center" expand visibleToasts={5} />
       </SessionProvider>
     </Provider>
   </StrictMode>,

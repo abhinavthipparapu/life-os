@@ -1,5 +1,4 @@
 import { Button } from "@lifeos/ui/components/button";
-import { Tabs, TabsList, TabsTrigger } from "@lifeos/ui/components/tabs";
 import { cn } from "@lifeos/ui/lib/utils";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -121,13 +120,11 @@ export function CalendarPage() {
           <Button variant="outline" size="icon-sm" aria-label="Next" onClick={() => setAnchor(step(view, anchor, 1))}><ChevronRight aria-hidden className="size-4" /></Button>
           <h2 className="ml-2 font-semibold" aria-live="polite">{title}</h2>
         </div>
-        <Tabs value={view} onValueChange={(v) => setView(v as View)}>
-          <TabsList>
-            <TabsTrigger value="day">Day</TabsTrigger>
-            <TabsTrigger value="week">Week</TabsTrigger>
-            <TabsTrigger value="month">Month</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div role="group" aria-label="Calendar view" className="flex gap-1">
+          {(["day", "week", "month"] as const).map((v) => (
+            <Button key={v} size="sm" variant={view === v ? "default" : "outline"} aria-pressed={view === v} className="capitalize" onClick={() => setView(v)}>{v}</Button>
+          ))}
+        </div>
       </div>
       {isLoading && !error && <PageSkeleton />}
       {error != null && <ErrorState error={error} retry={() => void refetch()} />}

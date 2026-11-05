@@ -133,7 +133,10 @@ export function SettingsPage() {
             {exportRow?.status === "completed" && <Button variant="outline" onClick={() => void downloadExport(exportRow.id).catch((e: Error) => toast.error(e.message))}>Download latest export</Button>}
           </div>
           {exportRow && exportRow.status !== "completed" && <p role="status" className="text-sm text-ink-muted">Your export is being prepared.</p>}
-          <Button variant="ghost" className="text-danger" onClick={() => setDialog("delete")}>Delete my account</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void signOut().then(() => navigate("/login"))}>Sign out</Button>
+            <Button variant="ghost" className="text-danger" onClick={() => setDialog("delete")}>Delete my account</Button>
+          </div>
         </section>
       </div>
       {dialog === "export" && (
@@ -142,7 +145,7 @@ export function SettingsPage() {
       )}
       {dialog === "delete" && (
         <ReauthDialog title="Delete your account" description="This permanently removes your login, planners and history. It cannot be undone." confirmLabel="Delete my account" requireWord="DELETE" onClose={() => setDialog(null)}
-          onConfirmed={async () => { await requestDeletion().unwrap(); await signOut(); navigate("/"); }} />
+          onConfirmed={async () => { await requestDeletion().unwrap(); navigate("/", { replace: true }); await signOut(); }} />
       )}
     </>
   );

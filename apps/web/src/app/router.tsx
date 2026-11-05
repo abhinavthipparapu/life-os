@@ -30,6 +30,7 @@ function Root() {
 const page = <T extends object>(load: () => Promise<T>, name: keyof T) => ({
   lazy: async () => ({ Component: (await load())[name] as React.ComponentType }),
   errorElement: <RouteError />,
+  HydrateFallback: () => null,
 });
 const auth = () => import("@/features/auth/pages");
 const marketing = () => import("@/features/marketing/pages");
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
   {
     element: <Root />,
     errorElement: <RouteError />,
+    HydrateFallback: () => null,
     children: [
       { path: "/", ...page(marketing, "LandingPage") },
       { path: "/privacy", ...page(marketing, "PrivacyPage") },
