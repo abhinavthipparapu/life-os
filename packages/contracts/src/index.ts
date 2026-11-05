@@ -137,16 +137,23 @@ export const createFieldDefinition = z.object({
 // ---- Occurrences ----
 export const occurrenceQuery = z
   .object({ from: localDate, to: localDate, plannerId: id.optional() })
-  .refine((q) => q.from <= q.to, "from must not be after to");
+  .refine((q) => q.from <= q.to, "from must not be after to")
+  .refine((q) => (Date.parse(q.to) - Date.parse(q.from)) / 86_400_000 <= 92, "Range is limited to 92 days");
 export const completeOccurrence = z.object({
   expectedVersion: z.number().int().positive().optional(),
   value: z.number().finite().optional(),
   note: z.string().trim().max(1000).optional(),
   occurredAt: z.iso.datetime().optional(),
 });
-export const skipOccurrence = completeOccurrence
-  .omit({ value: true })
-  .extend({ reason: z.string().trim().min(1).max(500) });
+export const skipOccurrence = completeOccurrence.omit({ value: true }).extend({
+  reason: z.string().trim().min(1).max(500),
+  kind: z.enum(["skip", "rest"]).default("skip"),
+});
+export const deferOccurrence = z.object({
+  toDate: localDate,
+  expectedVersion: z.number().int().positive().optional(),
+  reason: z.string().trim().max(500).optional(),
+});
 export const reopenOccurrence = completeOccurrence.omit({ value: true, note: true });
 
 // ---- Metrics and goals ----
@@ -166,6 +173,8 @@ export const createMetricLog = z.object({
   value: z.number().finite().nullable().optional(),
   textValue: z.string().trim().max(2000).nullable().optional(),
 });
+export const metricLogQuery = pageQuery.extend({ metricId: id.optional() });
+export const seriesQuery = z.object({ from: localDate, to: localDate, grain: z.enum(["day", "week", "month"]).default("day") });
 export const goalPeriod = z.enum(["daily", "weekly", "monthly", "yearly", "total"]);
 export const createGoal = z.object({
   title: name,
@@ -286,6 +295,9 @@ export const querySpec = z
   });
 export type QuerySpec = z.infer<typeof querySpec>;
 
+export const analyticsRange = z
+  .object({ from: localDate, to: localDate, plannerId: id.optional(), categoryId: id.optional() })
+  .refine((q) => q.from <= q.to, "from must not be after to");
 export const chartType = z.enum(["line", "area", "bar", "heatmap", "stat"]);
 export const widget = z.object({
   title: name,

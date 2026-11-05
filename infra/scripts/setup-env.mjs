@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Creates a local .env with random secrets and an ES256 signing key. Never overwrites an existing file.
 import { existsSync, writeFileSync } from "node:fs";
-import { generateKeyPairSync, randomBytes, randomUUID } from "node:crypto";
+import { createPrivateKey, generateKeyPairSync, randomBytes, randomUUID, sign } from "node:crypto";
 
 if (existsSync(".env")) {
   console.log(".env already exists, leaving it unchanged.");
@@ -16,6 +16,14 @@ const jwk = {
   use: "sig",
   key_ops: ["sign", "verify"],
 };
+const b64 = (v) => Buffer.from(JSON.stringify(v)).toString("base64url");
+// Local stand-in for Supabase's service role key, signed by the local Auth key.
+const claims = { role: "service_role", iss: "http://127.0.0.1:54321/auth/v1", exp: 4102444800 };
+const body = `${b64({ alg: "ES256", typ: "JWT", kid: jwk.kid })}.${b64(claims)}`;
+const signature = sign("sha256", Buffer.from(body), {
+  key: createPrivateKey({ key: jwk, format: "jwk" }),
+  dsaEncoding: "ieee-p1363",
+}).toString("base64url");
 const pg = secret();
 const lines = [
   `POSTGRES_PASSWORD=${pg}`,
@@ -30,6 +38,7 @@ const lines = [
   `SUPABASE_JWT_AUDIENCE=authenticated`,
   `WEB_ORIGIN=http://localhost:5173`,
   `API_PORT=4000`,
+  `SUPABASE_SERVICE_ROLE_KEY=${body}.${signature}`,
   `AI_PROVIDER=mock`,
   `VITE_API_URL=http://localhost:4000`,
   `VITE_SUPABASE_URL=http://127.0.0.1:54321`,

@@ -1,3 +1,4 @@
+import { localDateOf } from "@lifeos/analytics-core";
 import { LIMITS, type createTask, type reparentTask, type schedule, type updateTask } from "@lifeos/contracts";
 import type { Prisma, PrismaClient } from "@lifeos/db";
 import { materializeOccurrences, reconcileFutureOccurrences, validateRule } from "@lifeos/domain";
@@ -145,8 +146,9 @@ export function taskService(prisma: PrismaClient) {
           if (scheduleInput === null) {
             if (existing) {
               await tx.taskSchedule.update({ where: { id: existing.id }, data: { deletedAt: new Date() } });
+              const today = toDate(localDateOf(new Date(), existing.timezone));
               await tx.taskOccurrence.deleteMany({
-                where: { taskId: id, status: "pending", date: { gte: new Date() }, events: { none: {} } },
+                where: { taskId: id, status: "pending", date: { gte: today }, events: { none: {} } },
               });
             }
           } else {

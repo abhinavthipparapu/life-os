@@ -50,9 +50,9 @@ export function categoryService(prisma: PrismaClient) {
       prisma.$transaction(async (tx) => {
         const owned = await tx.category.count({ where: { userId, deletedAt: null, id: { in: orderedIds } } });
         if (owned !== new Set(orderedIds).size) throw notFound("Category");
-        await Promise.all(
-          orderedIds.map((id, sortOrder) => tx.category.update({ where: { id }, data: { sortOrder } })),
-        );
+        for (const [sortOrder, id] of orderedIds.entries()) {
+          await tx.category.update({ where: { id }, data: { sortOrder } });
+        }
         await audit(tx, { actorId: userId, action: "category.reorder", entityType: "category" });
         return repo.list(tx, userId);
       }),
