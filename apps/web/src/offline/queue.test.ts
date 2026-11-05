@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb, wipeLocalData, type CachedOccurrence } from "./db";
-import { cacheOccurrences, enqueueOccurrenceAction, listQueue, pendingIds, readOccurrences, retryWithVersion } from "./queue";
+import { cacheOccurrences, enqueueOccurrenceAction, listQueue, pendingIds, readOccurrences, replaceRange, retryWithVersion } from "./queue";
 
 vi.mock("@/lib/env", () => ({ env: { VITE_API_URL: "http://api.test" } }));
 vi.mock("@/lib/supabase", () => ({ supabase: {} }));
@@ -27,6 +27,21 @@ describe("offline queue", () => {
     await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete");
     expect((await readOccurrences("2026-03-01", "2026-03-01"))[0]!.status).toBe("completed");
     expect(await pendingIds()).toEqual(new Set(["a"]));
+  });
+  it("chains expected versions so offline complete then undo replays without a conflict", async () => {
+    await cacheOccurrences([row("a")]);
+    const first = await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete");
+    const undo = await enqueueOccurrenceAction({ id: "a", version: 1 }, "reopen");
+    expect(first.expectedVersion).toBe(1);
+    expect(undo.expectedVersion).toBe(2);
+    expect((await readOccurrences("2026-03-01", "2026-03-01"))[0]!.status).toBe("pending");
+  });
+  it("drops rows the server removed, but never unsynced ones", async () => {
+    await cacheOccurrences([row("gone"), row("kept"), row("local")]);
+    await enqueueOccurrenceAction({ id: "local", version: 1 }, "complete");
+    await replaceRange("2026-03-01", "2026-03-01", [row("kept")]);
+    const ids = (await readOccurrences("2026-03-01", "2026-03-01")).map((r) => r.id).sort();
+    expect(ids).toEqual(["kept", "local"]);
   });
   it("does not let a server refresh overwrite an unsynced change", async () => {
     await cacheOccurrences([row("a")]);

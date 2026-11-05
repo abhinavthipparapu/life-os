@@ -15,6 +15,22 @@ function normalize(row: CachedOccurrence): CachedOccurrence {
   return { ...row, date: row.date.slice(0, 10) };
 }
 
+/** Mirrors a fresh server range, dropping rows the server no longer has unless they are unsynced. */
+export async function replaceRange(from: string, to: string, rows: CachedOccurrence[], plannerId?: string) {
+  const db = await getDb();
+  const pending = await pendingIds();
+  const keep = new Set(rows.map((r) => r.id));
+  const existing = await db.getAllFromIndex("occurrences", "byDate", IDBKeyRange.bound(from, to));
+  const tx = db.transaction("occurrences", "readwrite");
+  await Promise.all([
+    ...existing
+      .filter((r) => !keep.has(r.id) && !pending.has(r.id) && (!plannerId || r.task.plannerId === plannerId))
+      .map((r) => tx.store.delete(r.id)),
+    ...rows.filter((r) => !pending.has(r.id)).map((r) => tx.store.put(normalize(r))),
+    tx.done,
+  ]);
+}
+
 export async function readOccurrences(from: string, to: string) {
   const db = await getDb();
   return db.getAllFromIndex("occurrences", "byDate", IDBKeyRange.bound(from, to));
@@ -43,19 +59,20 @@ export async function enqueueOccurrenceAction(
   // Strictly increasing even within one millisecond, because replay order decides the final state.
   const last = await queue.index("byQueuedAt").openCursor(null, "prev");
   const queuedAt = Math.max(Date.now(), (last?.value.queuedAt ?? 0) + 1);
+  const cached = await store.get(occurrence.id);
   const operation = {
     clientOperationId: crypto.randomUUID(),
     entityType: "occurrence" as const,
     entityId: occurrence.id,
     action,
-    expectedVersion: occurrence.version,
+    expectedVersion: cached?.version ?? occurrence.version,
     occurredAt: new Date().toISOString(),
     payload,
     queuedAt,
   };
   await queue.put(operation);
-  const cached = await store.get(occurrence.id);
-  if (cached) await store.put({ ...cached, status: STATUS[action] });
+  // Each accepted action bumps the server version, so the next queued one must expect that.
+  if (cached) await store.put({ ...cached, status: STATUS[action], version: cached.version + 1 });
   await tx.done;
   return operation;
 }
