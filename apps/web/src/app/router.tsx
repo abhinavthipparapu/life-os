@@ -59,6 +59,10 @@ export const router = createBrowserRouter([
       { path: "/privacy", ...page(marketing, "PrivacyPage") },
       { path: "/terms", ...page(marketing, "TermsPage") },
       { path: "/verify-email", ...page(auth, "VerifyEmailPage") },
+      {
+        path: "/check-email",
+        ...page(() => import("@/features/auth/check-email"), "CheckEmailPage"),
+      },
       { path: "/forgot-password", ...page(auth, "ForgotPasswordPage") },
       { path: "/reset-password", ...page(auth, "ResetPasswordPage") },
       {

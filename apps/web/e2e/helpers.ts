@@ -33,8 +33,10 @@ export async function signUp(page: Page) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Verify your email" })).toBeVisible();
   await page.goto(await verificationLink(email));
+  await expect(page.getByRole("heading", { name: "Email verified" })).toBeVisible();
+  await page.getByRole("link", { name: "Continue to LifeOS" }).click();
   await expect(page).toHaveURL(/\/app/);
   await expect(page.getByRole("heading", { name: /^Hello/ })).toBeVisible();
   return email;
@@ -65,6 +67,11 @@ export async function scheduleDaily(page: Page, task: string) {
   await page.getByLabel("Repeats").selectOption("daily");
   await page.getByRole("button", { name: "Save schedule" }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
+}
+
+export async function mailCount(email: string): Promise<number> {
+  const res = await fetch(`${MAILPIT}/search?query=${encodeURIComponent(`to:"${email}"`)}`);
+  return ((await res.json()) as { messages: unknown[] }).messages.length;
 }
 
 export async function clearMail(email: string) {

@@ -2,13 +2,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@lifeos/ui/components/button";
 import { Input } from "@lifeos/ui/components/input";
 import { Label } from "@lifeos/ui/components/label";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { FieldError } from "@/components/common/states";
 import { supabase } from "@/lib/supabase";
 import { AuthLayout } from "./auth-layout";
+import { verificationRedirect } from "./check-email";
 import { useSession } from "./session";
 
 const email = z.email("Enter a valid email address");
@@ -54,12 +55,13 @@ export function LoginPage() {
     setError(undefined);
     const { error: failure } = await supabase.auth.signInWithPassword(values);
     if (failure) {
-      // One message for every failure, so this form cannot be used to discover registered emails.
-      setError(
-        failure.code === "email_not_confirmed"
-          ? "Please confirm your email first."
-          : "Email or password is incorrect.",
-      );
+      // Auth only reports this after the password matched, so it reveals nothing to a stranger.
+      if (failure.code === "email_not_confirmed") {
+        navigate("/check-email", { state: { email: values.email, unverified: true } });
+        return;
+      }
+      // One message for every other failure, so this form cannot discover registered emails.
+      setError("Email or password is incorrect.");
       return;
     }
     navigate((location.state as { from?: string } | null)?.from ?? "/app", { replace: true });
@@ -113,7 +115,7 @@ export function LoginPage() {
 }
 
 export function SignupPage() {
-  const [sent, setSent] = useState(false);
+  const navigate = useNavigate();
   const [error, setError] = useState<string>();
   const form = useForm<Credentials>({ resolver: zodResolver(credentials) });
   const { errors, isSubmitting } = form.formState;
@@ -122,27 +124,15 @@ export function SignupPage() {
     setError(undefined);
     const { error: failure } = await supabase.auth.signUp({
       ...values,
-      options: { emailRedirectTo: `${origin()}/verify-email` },
+      options: { emailRedirectTo: verificationRedirect() },
     });
     if (failure && failure.status !== 422) {
       setError("We couldn't create your account. Please try again.");
       return;
     }
-    setSent(true);
+    navigate("/check-email", { state: { email: values.email, justSent: true } });
   });
 
-  if (sent) {
-    return (
-      <AuthLayout
-        title="Check your email"
-        subtitle="If this address can be registered, we've sent a confirmation link."
-      >
-        <Link className="text-sm font-medium text-primary underline" to="/login">
-          Back to sign in
-        </Link>
-      </AuthLayout>
-    );
-  }
   return (
     <AuthLayout
       title="Create your account"
@@ -299,24 +289,37 @@ export function ResetPasswordPage() {
 
 export function VerifyEmailPage() {
   const { session, loading } = useSession();
-  const navigate = useNavigate();
-  useEffect(() => {
-    if (session) navigate("/app", { replace: true });
-  }, [session, navigate]);
-  if (loading || session)
+  if (loading) {
     return (
       <AuthLayout title="Confirming your email">
         <p className="text-sm text-ink-muted">One moment.</p>
       </AuthLayout>
     );
+  }
+  if (session && !linkError()) {
+    return (
+      <AuthLayout title="Email verified" subtitle="Your account is active and you're signed in.">
+        <Button asChild className="w-full">
+          <Link to="/app">Continue to LifeOS</Link>
+        </Button>
+      </AuthLayout>
+    );
+  }
   return (
     <AuthLayout
       title="This link is invalid or has expired"
-      subtitle={linkError() ?? "Try signing in, or sign up again for a new link."}
+      subtitle="Confirmation links work once and expire after a while. You can ask for a new one."
     >
-      <Link className="text-sm font-medium text-primary underline" to="/login">
-        Go to sign in
-      </Link>
+      <div className="space-y-3">
+        <Button asChild className="w-full">
+          <Link to="/check-email">Send a new link</Link>
+        </Button>
+        <p className="text-center text-sm">
+          <Link className="text-primary underline" to="/login">
+            Go to sign in
+          </Link>
+        </p>
+      </div>
     </AuthLayout>
   );
 }

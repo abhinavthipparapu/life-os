@@ -46,12 +46,21 @@ Create a managed Redis instance with the `noeviction` policy, which BullMQ requi
 
 Point `app` and `api` at Vercel and Render, and use Full (strict) TLS.
 
-## 7. OpenAI
+## 7. Database
+
+Run these once per environment, or the templates page will be empty. Never set `SEED_DEMO_USERS` here.
+
+```sh
+DATABASE_URL="<database-url>" pnpm prisma migrate deploy
+DATABASE_URL="<database-url>" pnpm exec tsx prisma/seed.ts
+```
+
+## 8. OpenAI
 
 Create a project key with a monthly spend limit, then set `AI_PROVIDER=openai`, `OPENAI_API_KEY` and
 `OPENAI_MODEL` on Render. Set `FEATURE_AI=false` to turn AI off instantly.
 
-## 8. First admin
+## 9. First admin
 
 Admin roles are granted only in the database. After you sign up:
 
@@ -61,7 +70,7 @@ UPDATE profiles SET role = 'admin' WHERE email = 'you@example.com';
 
 Then open `/admin` and enroll in two-factor authentication.
 
-## 9. Release
+## 10. Release
 
 1. Merge to `main`, and let the staging workflow run.
 2. Run the smoke test, a restore drill and a rollback rehearsal on staging.

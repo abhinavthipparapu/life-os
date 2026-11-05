@@ -1,8 +1,10 @@
-import { expect, test } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+import { expect, test, type Page } from "@playwright/test";
 import {
   clearMail,
   createPlannerWithTask,
   expectAccessible,
+  mailCount,
   PASSWORD,
   promote,
   scheduleDaily,
@@ -231,6 +233,81 @@ test("a token from a deleted account signs the browser out instead of reviving i
       { timeout: 30_000 },
     )
     .toBe(403);
+});
+
+test.describe("email verification", () => {
+  const start = async (page: Page) => {
+    const email = `e2e+${randomUUID().slice(0, 8)}@example.com`;
+    await page.goto("/signup");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(PASSWORD);
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(page.getByRole("heading", { name: "Verify your email" })).toBeVisible();
+    return email;
+  };
+  const login = async (page: Page, email: string) => {
+    await page.goto("/login");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(PASSWORD);
+    await page.getByRole("button", { name: "Sign in" }).click();
+  };
+
+  test("signup shows the address, tips and a resend cooldown", async ({ page }) => {
+    const email = await start(page);
+    await expect(page.getByText(email)).toBeVisible();
+    await expect(page.getByText("Check your spam or junk folder.")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Resend email in \d+s/ })).toBeDisabled();
+    await expectAccessible(page);
+  });
+
+  test("logging in before verifying leads to the screen, and resend sends a new email", async ({
+    page,
+  }) => {
+    const email = await start(page);
+    await expect.poll(() => mailCount(email)).toBe(1);
+    await login(page, email);
+    await expect(page.getByText("Your account isn't active yet")).toBeVisible();
+    await expect(page).toHaveURL(/check-email/);
+    await page.getByRole("button", { name: "Resend email" }).click();
+    await expect(page.getByRole("status")).toContainText("a new email is on its way");
+    await expect(page.getByRole("button", { name: /Resend email in \d+s/ })).toBeDisabled();
+    await expect.poll(() => mailCount(email)).toBe(2);
+  });
+
+  test("the emailed link verifies the account, and login then works", async ({ page }) => {
+    const email = await start(page);
+    await page.goto(await verificationLink(email));
+    await expect(page.getByRole("heading", { name: "Email verified" })).toBeVisible();
+    await page.getByRole("link", { name: "Continue to LifeOS" }).click();
+    await expect(page.getByRole("heading", { name: /^Hello/ })).toBeVisible();
+    await page.goto("/app/settings");
+    await page.getByRole("main").getByRole("button", { name: "Sign out" }).click();
+    await login(page, email);
+    await expect(page).toHaveURL(/\/app/);
+  });
+
+  test("a tab left on the verify screen moves on after confirming in another tab", async ({
+    page,
+    context,
+  }) => {
+    const email = await start(page);
+    const other = await context.newPage();
+    await other.goto(await verificationLink(email));
+    await expect(other.getByRole("heading", { name: "Email verified" })).toBeVisible();
+    await expect(page).toHaveURL(/\/app/);
+  });
+
+  test("an expired link offers a new one, even without a remembered address", async ({ page }) => {
+    await page.goto("/verify-email#error=access_denied&error_description=expired");
+    await expect(page.getByRole("heading", { name: /invalid or has expired/ })).toBeVisible();
+    await page.getByRole("link", { name: "Send a new link" }).click();
+    await expect(page.getByRole("heading", { name: "Verify your email" })).toBeVisible();
+    await page.getByRole("button", { name: "Resend email" }).click();
+    await expect(page.getByRole("status")).toContainText("valid email");
+    await page.getByLabel("Email").fill(`nobody+${randomUUID().slice(0, 8)}@example.com`);
+    await page.getByRole("button", { name: "Resend email" }).click();
+    await expect(page.getByRole("status")).toContainText("a new email is on its way");
+  });
 });
 
 test("forgotten password can be reset through the emailed link", async ({ page }) => {
