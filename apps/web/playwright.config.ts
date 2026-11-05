@@ -22,8 +22,10 @@ export default defineConfig({
     {
       command: "pnpm exec tsx --env-file=../../.env src/server.ts",
       cwd: "../api",
+      // Production behavior, so the admin test proves the real MFA path.
+      env: { ADMIN_REQUIRE_MFA: "true" },
       url: "http://localhost:4000/health/ready",
-      reuseExistingServer: true,
+      reuseExistingServer: false,
     },
     {
       command: "pnpm exec tsx --env-file=../../.env src/worker.ts",

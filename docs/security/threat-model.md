@@ -1,0 +1,29 @@
+# Threat model
+
+The most valuable asset is each person's private planning and health-adjacent data.
+
+| Threat                                  | Mitigation                                                                                                                                                           | Evidence                                                                                  |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Reading or changing another user's data | Identity from the verified token only, owner scope on every query, identical 404s                                                                                    | Cross-user tests per resource, browser isolation test                                     |
+| Forged or tampered tokens               | Signature, issuer, audience and expiry checked against JWKS; asymmetric algorithms only                                                                              | Tests for wrong key, `alg=none`, wrong issuer, wrong audience, expiry, service role token |
+| Unprotected endpoint added later        | Auth is applied at the router, and a test walks every route                                                                                                          | `apps/api/test/routes.test.ts`                                                            |
+| SQL injection through analytics         | Closed Zod query language, constant column expressions, bound parameters                                                                                             | Injection tests on every field                                                            |
+| AI writing data or leaking it           | Drafts change nothing until applied, output is schema-validated, no raw SQL, numbers come from the server, contact details are redacted, sensitive data needs opt-in | `platform.test.ts`, browser approval test                                                 |
+| Prompt injection                        | User text sits in the user role, output must pass the schema and safety filter, and the model has no tools                                                           | Invalid and unsafe output tests                                                           |
+| Cost abuse                              | Per-user monthly budget checked before calling, rate limits, caching, usage ledger, AI kill switch                                                                   | Budget and flag tests                                                                     |
+| Replayed or duplicated writes           | Client operation ids unique per user, Idempotency-Key on creates, row locks                                                                                          | Replay and concurrency tests                                                              |
+| Account enumeration                     | One generic login failure, and the same outcome for signup and reset                                                                                                 | Browser test                                                                              |
+| Deleted account revived by an old token | Tombstone written with the deletion                                                                                                                                  | API and browser tests                                                                     |
+| Admin abuse or discovery                | Role gate returns 404 to others, MFA required, confirmations, audit trail, no access to user content                                                                 | Admin tests                                                                               |
+| Secrets in the browser                  | Only `VITE_` values ship, and the bundle is scanned in CI                                                                                                            | `check-bundle.mjs`                                                                        |
+| Compromised dependency                  | Cooling-off policy, install script allowlist, audit in CI                                                                                                            | `check-deps.mjs`                                                                          |
+| Private data left on a shared device    | Logout wipes IndexedDB and the push subscription. The service worker never caches API responses                                                                      | Browser test                                                                              |
+| XSS                                     | React escaping, text is not rendered as HTML, strict CSP with no inline scripts                                                                                      | `vercel.json`                                                                             |
+| CSRF                                    | Not applicable: auth uses bearer tokens, not cookies. CORS is an allowlist                                                                                           | Reviewed                                                                                  |
+
+## Accepted risks
+
+- An access token stays valid until it expires, up to one hour, after admin revocation at the Auth layer. The
+  API blocks revoked users on every request, so this affects only Auth-level calls.
+- The unsafe content filter is a keyword list. Add a moderation API before wide release.
+- Offline data is unencrypted on the device. See ADR 5.

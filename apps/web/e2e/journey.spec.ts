@@ -1,10 +1,14 @@
 import { expect, test } from "@playwright/test";
 import {
+  clearMail,
   createPlannerWithTask,
   expectAccessible,
   PASSWORD,
+  promote,
   scheduleDaily,
   signUp,
+  totp,
+  verificationLink,
 } from "./helpers";
 
 test("public pages load and protected pages redirect", async ({ page }) => {
@@ -227,6 +231,54 @@ test("a token from a deleted account signs the browser out instead of reviving i
       { timeout: 30_000 },
     )
     .toBe(403);
+});
+
+test("forgotten password can be reset through the emailed link", async ({ page }) => {
+  const email = await signUp(page);
+  await page.goto("/app/settings");
+  await page.getByRole("main").getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/login/);
+  await clearMail(email);
+  await page.goto("/forgot-password");
+  await page.getByLabel("Email").fill(email);
+  await page.getByRole("button", { name: "Send reset link" }).click();
+  await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+  await page.goto(await verificationLink(email));
+  await expect(page).toHaveURL(/reset-password/);
+  const updated = `New-${PASSWORD}`;
+  await page.getByLabel("New password").fill(updated);
+  await page.getByRole("button", { name: "Update password" }).click();
+  await expect(page).toHaveURL(/\/app/);
+  await page.goto("/app/settings");
+  await page.getByRole("main").getByRole("button", { name: "Sign out" }).click();
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(updated);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/app/);
+});
+
+test("admin area is hidden from users, and needs MFA for admins", async ({ page }) => {
+  const email = await signUp(page);
+  await page.goto("/admin");
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+
+  promote(email);
+  await page.goto("/admin");
+  await expect(page.getByRole("heading", { name: "Two-factor authentication" })).toBeVisible();
+  await expect(page.getByText("Audit", { exact: true })).toHaveCount(0);
+  await expectAccessible(page);
+  const secret = await page.getByTestId("mfa-secret").innerText();
+
+  await page.getByLabel("Six digit code").fill("000000");
+  await page.getByRole("button", { name: "Verify" }).click();
+  await expect(page.getByRole("alert")).toContainText("didn't work");
+
+  await page.getByLabel("Six digit code").fill(totp(secret));
+  await page.getByRole("button", { name: "Verify" }).click();
+  await expect(page.getByRole("tab", { name: "Audit" })).toBeVisible();
+  await page.getByRole("tab", { name: "Jobs" }).click();
+  await expect(page.getByText("Pending outbox events")).toBeVisible();
+  await expectAccessible(page);
 });
 
 for (const path of [

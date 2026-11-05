@@ -1,4 +1,5 @@
-import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { createHmac, randomUUID } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page } from "@playwright/test";
 
@@ -64,4 +65,45 @@ export async function scheduleDaily(page: Page, task: string) {
   await page.getByLabel("Repeats").selectOption("daily");
   await page.getByRole("button", { name: "Save schedule" }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
+}
+
+export async function clearMail(email: string) {
+  await fetch(`${MAILPIT}/search?query=${encodeURIComponent(`to:"${email}"`)}`, {
+    method: "DELETE",
+  });
+}
+
+/** Admin roles are granted only in the database, never through the API. */
+export function promote(email: string) {
+  execFileSync(
+    "docker",
+    [
+      "compose",
+      "exec",
+      "-T",
+      "postgres",
+      "psql",
+      "-U",
+      "lifeos",
+      "-d",
+      "lifeos",
+      "-c",
+      `UPDATE profiles SET role = 'admin' WHERE email = '${email}'`,
+    ],
+    { cwd: "../..", stdio: "pipe" },
+  );
+}
+
+/** RFC 6238 code, so the test uses the same factor a real authenticator app would. */
+export function totp(secret: string): string {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const bits = [...secret.replace(/=+$/, "")]
+    .map((c) => alphabet.indexOf(c).toString(2).padStart(5, "0"))
+    .join("");
+  const key = Buffer.from(bits.match(/.{8}/g)!.map((b) => parseInt(b, 2)));
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30_000)));
+  const hash = createHmac("sha1", key).update(counter).digest();
+  const offset = hash[hash.length - 1]! & 15;
+  return String((hash.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, "0");
 }

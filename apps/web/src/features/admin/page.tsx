@@ -4,8 +4,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@lifeos/ui/components/
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { api, messageOf } from "@/app/api";
+import { api, messageOf, problemOf } from "@/app/api";
 import { ErrorState, PageHeader, PageSkeleton } from "@/components/common/states";
+import { MfaGate } from "./mfa";
 
 function Audit() {
   const { data, isLoading, error } = api.useAdminAuditQuery({});
@@ -107,9 +108,10 @@ function Jobs() {
 }
 
 export function AdminPage() {
-  const { error } = api.useAdminJobsQuery();
-  const denied = (error as { status?: number } | undefined)?.status;
-  if (denied === 404)
+  const { error, refetch } = api.useAdminJobsQuery();
+  const problem = problemOf(error);
+  const [verified, setVerified] = useState(false);
+  if (problem?.status === 404) {
     return (
       <main className="p-8 text-center">
         <h1 className="text-xl font-semibold">Page not found</h1>
@@ -118,22 +120,34 @@ export function AdminPage() {
         </Link>
       </main>
     );
+  }
+  const header = (
+    <PageHeader
+      title="Admin"
+      description="Every action here is audited."
+      actions={
+        <Button variant="outline" asChild>
+          <Link to="/app">Back to app</Link>
+        </Button>
+      }
+    />
+  );
+  if (problem?.code === "mfa_required" && !verified) {
+    return (
+      <main className="mx-auto max-w-4xl p-4">
+        {header}
+        <MfaGate
+          onDone={() => {
+            setVerified(true);
+            void refetch();
+          }}
+        />
+      </main>
+    );
+  }
   return (
     <main className="mx-auto max-w-4xl p-4">
-      <PageHeader
-        title="Admin"
-        description="Every action here is audited."
-        actions={
-          <Button variant="outline" asChild>
-            <Link to="/app">Back to app</Link>
-          </Button>
-        }
-      />
-      {denied === 403 && (
-        <p role="alert" className="mb-4 rounded-lg bg-danger-soft p-3 text-sm text-danger">
-          Multi-factor authentication is required for admin access.
-        </p>
-      )}
+      {header}
       <Tabs defaultValue="audit">
         <TabsList className="mb-4">
           <TabsTrigger value="audit">Audit</TabsTrigger>
