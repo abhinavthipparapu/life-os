@@ -7,7 +7,5 @@ allowBuilds:
   esbuild: true
   prisma: true
   "@prisma/engines": true
-
-minimumReleaseAgeExclude:
-  - openai@7.51.0
-  - bullmq@6.7.0
+  # Optional native speed-up for msgpackr. The pure JS fallback is fine.
+  msgpackr-extract: false
