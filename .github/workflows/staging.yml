@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
-        with: { node-version-file: .nvmrc }
+        with: { node-version-file: .nvmrc, package-manager-cache: false }
       - run: corepack enable && pnpm install --frozen-lockfile
       # Migrations run before cutover, so new code never meets an old schema.
       - run: pnpm prisma migrate deploy
