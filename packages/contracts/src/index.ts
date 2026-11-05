@@ -241,6 +241,10 @@ export const plannerSnapshot = z
   });
 export type PlannerSnapshot = z.infer<typeof plannerSnapshot>;
 
+export const createTemplateVersion = z.object({
+  plannerId: id.optional(),
+  snapshot: plannerSnapshot.optional(),
+});
 export const createTemplate = z.object({
   name,
   description: z.string().trim().max(2000).nullable().optional(),
@@ -326,6 +330,24 @@ export const applyDraft = z.object({
   startsOn: localDate.optional(),
   snapshot: plannerSnapshot.optional(),
 });
+export const insightRequest = z.object({
+  rangeDays: z.number().int().min(7).max(92).default(30),
+  includeSensitive: z.boolean().default(false),
+});
+export const scheduleSuggestionRequest = z.object({
+  plannerId: id,
+  constraints: z.string().trim().max(1000).default(""),
+});
+export const scheduleProposal = z.object({
+  proposals: z
+    .array(z.object({ taskId: id, localTime: clockTime, reason: z.string().trim().max(300) }))
+    .max(50),
+});
+export const metricIntent = z.object({
+  kind: z.enum(["adherence", "metric"]),
+  metricKey: z.string().max(60).nullable().optional(),
+  days: z.number().int().min(1).max(365).default(30),
+});
 export const askMetrics = z.object({ question: z.string().trim().min(3).max(500) });
 
 // ---- Offline sync (section 8) ----
@@ -350,6 +372,18 @@ export const pushSubscription = z.object({
   keys: z.object({ p256dh: z.string().max(200), auth: z.string().max(100) }),
 });
 export const deletePushSubscription = z.object({ endpoint: z.url().max(1000) });
+
+// ---- Admin ----
+export const adminAuditQuery = pageQuery.extend({
+  actorId: id.optional(),
+  action: z.string().max(80).optional(),
+});
+export const adminUserLookup = z.object({ email: z.string().trim().min(3).max(200) });
+export const adminRevoke = z.object({
+  confirm: z.literal("REVOKE"),
+  reason: z.string().trim().min(3).max(500),
+});
+export const accountDeletion = z.object({ confirm: z.literal("DELETE") });
 
 // ---- Response envelope ----
 export interface ApiEnvelope<T> {

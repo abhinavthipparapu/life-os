@@ -22,7 +22,9 @@
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",
     "zod": "^4.6.7",
-    "@lifeos/domain": "workspace:*"
+    "@lifeos/domain": "workspace:*",
+    "ioredis": "^6.0.0",
+    "rate-limit-redis": "^6.0.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

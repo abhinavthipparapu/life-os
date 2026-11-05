@@ -528,12 +528,13 @@ model TemplateVersion {
 model TemplateInstall {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String   @map("user_id") @db.Uuid
-  versionId String   @map("version_id") @db.Uuid
+  // Null once the source template is deleted, so its author can always delete their account.
+  versionId String?  @map("version_id") @db.Uuid
   plannerId String   @map("planner_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  user    Profile         @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
-  version TemplateVersion @relation(fields: [versionId], references: [id])
+  user    Profile          @relation(fields: [userId], references: [authUserId], onDelete: Cascade)
+  version TemplateVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
   planner Planner         @relation(fields: [plannerId], references: [id], onDelete: Cascade)
 
   @@index([userId])

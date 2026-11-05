@@ -1,6 +1,6 @@
 import { streaks } from "@lifeos/analytics-core";
 import type { Prisma, PrismaClient } from "@lifeos/db";
-import { dailyCounts } from "../analytics/queries.js";
+import { dailyCounts } from "@lifeos/domain";
 
 type Tx = Prisma.TransactionClient;
 

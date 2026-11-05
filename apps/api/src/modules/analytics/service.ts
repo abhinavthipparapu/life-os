@@ -2,7 +2,7 @@ import { adherence, dailyScore, localDateOf, streaks } from "@lifeos/analytics-c
 import type { QuerySpec } from "@lifeos/contracts";
 import type { PrismaClient } from "@lifeos/db";
 import { notFound } from "../../shared/http.js";
-import { dailyCounts, metricBuckets, occurrenceBuckets, type ScopeFilter } from "./queries.js";
+import { dailyCounts, metricBuckets, occurrenceBuckets, type ScopeFilter } from "@lifeos/domain";
 
 const DENOMINATOR = "completed + missed; skipped, rest and not-applicable excluded";
 

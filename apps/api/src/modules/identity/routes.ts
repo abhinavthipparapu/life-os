@@ -1,11 +1,25 @@
-import { updatePreferences, updateProfile } from "@lifeos/contracts";
+import { accountDeletion, updatePreferences, updateProfile } from "@lifeos/contracts";
 import { Router } from "express";
+import { requireRecentAuth } from "../../middleware/auth.js";
+import { limiter } from "../../middleware/rate-limit.js";
 import { audit } from "../../shared/audit.js";
 import type { Deps } from "../../shared/deps.js";
 import { parse, send, userId } from "../../shared/http.js";
 
-export function identityRoutes({ prisma }: Deps) {
+export function identityRoutes({ prisma, rateLimitStore }: Deps) {
   const router = Router();
+  const accountLimit = limiter("account", 5, 3_600_000, rateLimitStore ?? (() => undefined));
+
+  /** The worker fulfils the request from the outbox, so it survives an API restart. */
+  const queueRequest = (id: string, kind: "export" | "deletion") =>
+    prisma.$transaction(async (tx) => {
+      const request = await tx.accountRequest.create({ data: { userId: id, kind } });
+      await tx.outboxEvent.create({
+        data: { userId: id, type: `account.${kind}`, payload: { requestId: request.id } },
+      });
+      await audit(tx, { actorId: id, action: `account.${kind}.request`, entityType: "account_request", entityId: request.id });
+      return request;
+    });
 
   const getProfile = (id: string) =>
     prisma.profile.findUniqueOrThrow({
@@ -39,6 +53,24 @@ export function identityRoutes({ prisma }: Deps) {
       });
     });
     send(res, await getProfile(id));
+  });
+
+  router.get("/me/requests", async (req, res) =>
+    send(
+      res,
+      await prisma.accountRequest.findMany({
+        where: { userId: userId(req) },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+    ),
+  );
+  router.post("/me/export", accountLimit, requireRecentAuth, async (req, res) =>
+    send(res, await queueRequest(userId(req), "export"), null, 202),
+  );
+  router.post("/me/deletion", accountLimit, requireRecentAuth, async (req, res) => {
+    parse(accountDeletion, req.body);
+    send(res, await queueRequest(userId(req), "deletion"), null, 202);
   });
 
   return router;

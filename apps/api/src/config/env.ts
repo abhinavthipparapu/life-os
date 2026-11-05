@@ -12,6 +12,8 @@ const schema = z.object({
   AI_PROVIDER: z.enum(["mock", "openai"]).default("mock"),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().optional(),
+  ADMIN_REQUIRE_MFA: z.stringbool().optional(),
+  RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
   AI_MONTHLY_TOKEN_BUDGET: z.coerce.number().int().positive().default(200_000),
 });
 export type Env = z.infer<typeof schema>;

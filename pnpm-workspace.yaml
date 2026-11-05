@@ -7,3 +7,6 @@ allowBuilds:
   esbuild: true
   prisma: true
   "@prisma/engines": true
+
+minimumReleaseAgeExclude:
+  - openai@7.51.0

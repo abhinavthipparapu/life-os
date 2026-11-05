@@ -4,7 +4,7 @@ import type { PrismaClient } from "@lifeos/db";
 import type { z } from "zod";
 import { audit } from "../../shared/audit.js";
 import { AppError, notFound, paginate } from "../../shared/http.js";
-import { metricBuckets } from "../analytics/queries.js";
+import { metricBuckets } from "@lifeos/domain";
 import { userTimezone } from "../analytics/service.js";
 
 function invalid(message: string): never {

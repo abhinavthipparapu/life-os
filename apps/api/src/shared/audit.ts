@@ -15,3 +15,6 @@ type AuditClient = Pick<Prisma.TransactionClient, "auditEvent">;
 export async function audit(db: AuditClient, input: AuditInput) {
   await db.auditEvent.create({ data: input });
 }
+
+/** Plain data for a JSON column. Round-tripping also drops undefined values. */
+export const toJson = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
