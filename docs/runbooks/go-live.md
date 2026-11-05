@@ -14,7 +14,7 @@ credentials and keys.
 
 ## 2. Supabase (one project per environment)
 
-1. Create the project, and note its URL, publishable key and service role key.
+1. Create the project with the **Data API turned off**, and note its URL, publishable key and service role key.
 2. Under Authentication, turn on email confirmation, TOTP MFA, and asymmetric JWT signing keys, so tokens can
    be verified through JWKS.
 3. Set the Site URL, and add `https://<your-app>/**` to the redirect allowlist.
@@ -53,6 +53,12 @@ Run these once per environment, or the templates page will be empty. Never set `
 ```sh
 DATABASE_URL="<database-url>" pnpm prisma migrate deploy
 DATABASE_URL="<database-url>" pnpm exec tsx prisma/seed.ts
+```
+
+Then confirm the public key cannot read data. This must not return rows:
+
+```sh
+curl -s "https://<project-ref>.supabase.co/rest/v1/profiles?select=*" -H "apikey: <publishable-key>"
 ```
 
 ## 8. OpenAI
