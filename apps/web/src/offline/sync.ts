@@ -1,7 +1,7 @@
 import { LIMITS, type ApiEnvelope, type SyncOutcome } from "@lifeos/contracts";
 import { env } from "@/lib/env";
 import { supabase } from "@/lib/supabase";
-import { listQueue, markConflict, removeFromQueue, saveServerOccurrence } from "./queue";
+import { listQueue, markConflict, pendingIds, removeFromQueue, saveServerOccurrence } from "./queue";
 
 interface ResultRow {
   clientOperationId: string;
@@ -44,11 +44,18 @@ export function replayQueue(transport: Transport = httpTransport): Promise<SyncS
 
 async function drain(transport: Transport): Promise<SyncSummary> {
   const summary: SyncSummary = { sent: 0, conflicts: [], rejected: 0, celebrations: [] };
-  const operations = (await listQueue()).filter((op) => !op.conflict);
-  for (let i = 0; i < operations.length; i += LIMITS.maxSyncBatch) {
-    const batch = operations.slice(i, i + LIMITS.maxSyncBatch).map(({ queuedAt: _q, conflict: _c, ...op }) => op);
+  // Re-reads the queue each pass, so anything tapped during a replay goes out in this same run.
+  for (;;) {
+    const operations = (await listQueue()).filter((op) => !op.conflict);
+    if (operations.length === 0) return summary;
+    const batch = operations.slice(0, LIMITS.maxSyncBatch).map(({ queuedAt: _q, conflict: _c, ...op }) => op);
     const results = await transport(batch);
+    // A reply that matches nothing in this batch can never shrink the queue, so stop here.
+    const sentIds = new Set(batch.map((op) => op.clientOperationId));
+    if (!results.some((r) => sentIds.has(r.clientOperationId))) return summary;
+
     const done: string[] = [];
+    const confirmed: NonNullable<ResultRow["occurrence"]>[] = [];
     for (const result of results) {
       summary.sent += 1;
       if (result.outcome === "conflict" && result.current) {
@@ -58,10 +65,14 @@ async function drain(transport: Transport): Promise<SyncSummary> {
       }
       done.push(result.clientOperationId);
       if (result.outcome === "rejected") summary.rejected += 1;
-      if (result.occurrence) await saveServerOccurrence(result.occurrence);
+      if (result.occurrence) confirmed.push(result.occurrence);
       if (result.celebration) summary.celebrations.push(result.celebration);
     }
     await removeFromQueue(done);
+    // A newer queued change wins over this result. Its own reply will update the row later.
+    const stillQueued = await pendingIds();
+    for (const occurrence of confirmed) {
+      if (!stillQueued.has(occurrence.id)) await saveServerOccurrence(occurrence);
+    }
   }
-  return summary;
 }

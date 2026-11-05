@@ -93,6 +93,49 @@ describe("offline queue", () => {
     await Promise.all([replayQueue(transport), replayQueue(transport), replayQueue(transport)]);
     expect(transport).toHaveBeenCalledTimes(1);
   });
+  it("also sends actions queued while a replay is in flight", async () => {
+    await cacheOccurrences([row("a")]);
+    await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete");
+    const batches: string[][] = [];
+    const accept = (ops: unknown[]) => (ops as { clientOperationId: string }[]).map((o) => ({ clientOperationId: o.clientOperationId, outcome: "accepted" as const }));
+    await replayQueue(async (ops) => {
+      batches.push((ops as { action: string }[]).map((o) => o.action));
+      if (batches.length === 1) await enqueueOccurrenceAction({ id: "a", version: 1 }, "reopen");
+      return accept(ops);
+    });
+    expect(batches).toEqual([["complete"], ["reopen"]]);
+    expect(await listQueue()).toHaveLength(0);
+  });
+  it("does not let an older server result overwrite a newer queued change", async () => {
+    await cacheOccurrences([row("a")]);
+    const first = await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete");
+    let calls = 0;
+    await replayQueue(async () => {
+      calls += 1;
+      if (calls > 1) return [];
+      await enqueueOccurrenceAction({ id: "a", version: 1 }, "reopen");
+      await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete");
+      return [{ clientOperationId: first.clientOperationId, outcome: "accepted" as const, occurrence: { id: "a", status: "pending", version: 2 } }];
+    });
+    const cached = (await readOccurrences("2026-03-01", "2026-03-01"))[0]!;
+    expect(cached.status).toBe("completed");
+    expect(cached.version).toBe(4);
+  });
+  it("stops rather than loops if the server returns no results", async () => {
+    await cacheOccurrences([row("a")]);
+    await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete");
+    const transport = vi.fn(async () => []);
+    await replayQueue(transport);
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(await listQueue()).toHaveLength(1);
+  });
+  it("stops if the server replies with ids that match nothing", async () => {
+    await cacheOccurrences([row("a")]);
+    await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete");
+    const transport = vi.fn(async () => [{ clientOperationId: "unknown", outcome: "accepted" as const }]);
+    await replayQueue(transport);
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
   it("wipes all private data on logout", async () => {
     await cacheOccurrences([row("a")]);
     await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete");
