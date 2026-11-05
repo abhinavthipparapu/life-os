@@ -10,3 +10,4 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - openai@7.51.0
+  - bullmq@6.7.0

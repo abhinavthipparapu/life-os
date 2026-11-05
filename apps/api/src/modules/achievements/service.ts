@@ -1,17 +1,9 @@
 import { streaks } from "@lifeos/analytics-core";
+import { ACHIEVEMENTS } from "@lifeos/contracts";
 import type { Prisma, PrismaClient } from "@lifeos/db";
 import { dailyCounts } from "@lifeos/domain";
 
 type Tx = Prisma.TransactionClient;
-
-// Positive milestones only: nothing here is ever revoked or lost (section 1).
-export const ACHIEVEMENTS = [
-  { key: "first_completion", title: "First step", description: "Completed your first task", icon: "sparkles" },
-  { key: "perfect_day", title: "Perfect day", description: "Finished everything planned for a day", icon: "sun" },
-  { key: "streak_7", title: "One week strong", description: "Reached a 7 day streak", icon: "flame" },
-  { key: "streak_30", title: "Thirty days", description: "Reached a 30 day streak", icon: "trophy" },
-  { key: "total_100", title: "Century", description: "Completed 100 tasks", icon: "award" },
-] as const;
 
 async function awardAchievement(tx: Tx, userId: string, key: string) {
   const spec = ACHIEVEMENTS.find((a) => a.key === key)!;

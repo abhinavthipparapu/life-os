@@ -1,9 +1,11 @@
 import { localDateOf } from "@lifeos/analytics-core";
 import { LIMITS } from "@lifeos/contracts";
 import type { Prisma } from "@lifeos/db";
-import rrulePkg from "rrule";
+import * as rruleModule from "rrule";
 
-const { RRule, rrulestr } = rrulePkg;
+// rrule ships CommonJS to Node and ESM to bundlers, so its exports sit in different places.
+type RRuleExports = typeof rruleModule;
+const { RRule, rrulestr } = (rruleModule as RRuleExports & { default?: RRuleExports }).default ?? rruleModule;
 
 const DAY_MS = 86_400_000;
 const ALLOWED_FREQUENCIES = new Set<number>([RRule.DAILY, RRule.WEEKLY, RRule.MONTHLY, RRule.YEARLY]);

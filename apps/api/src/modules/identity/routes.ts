@@ -4,7 +4,7 @@ import { requireRecentAuth } from "../../middleware/auth.js";
 import { limiter } from "../../middleware/rate-limit.js";
 import { audit } from "../../shared/audit.js";
 import type { Deps } from "../../shared/deps.js";
-import { parse, send, userId } from "../../shared/http.js";
+import { notFound, param, parse, send, userId } from "../../shared/http.js";
 
 export function identityRoutes({ prisma, rateLimitStore }: Deps) {
   const router = Router();
@@ -62,9 +62,17 @@ export function identityRoutes({ prisma, rateLimitStore }: Deps) {
         where: { userId: userId(req) },
         orderBy: { createdAt: "desc" },
         take: 20,
+        omit: { resultJson: true },
       }),
     ),
   );
+  router.get("/me/requests/:id/download", async (req, res) => {
+    const request = await prisma.accountRequest.findFirst({
+      where: { id: param(req, "id"), userId: userId(req), kind: "export", status: "completed" },
+    });
+    if (!request) throw notFound("Export");
+    send(res, request.resultJson);
+  });
   router.post("/me/export", accountLimit, requireRecentAuth, async (req, res) =>
     send(res, await queueRequest(userId(req), "export"), null, 202),
   );

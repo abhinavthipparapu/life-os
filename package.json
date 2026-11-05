@@ -2,6 +2,7 @@
   "name": "lifeos",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "packageManager": "pnpm@12.16.1",
   "engines": {
     "node": ">=22.18.0"
@@ -13,7 +14,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "test": "pnpm -r --workspace-concurrency=1 test",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "setup:env": "node infra/scripts/setup-env.mjs",
@@ -29,6 +30,8 @@
     "typescript": "5.9.3",
     "prettier": "^3.6.0",
     "eslint": "^9.39.0",
-    "typescript-eslint": "^8.46.0"
+    "typescript-eslint": "^8.46.0",
+    "@lifeos/contracts": "workspace:*",
+    "@lifeos/db": "workspace:*"
   }
 }
