@@ -19,7 +19,8 @@ async function assertParent(tx: Tx, userId: string, parentId: string, selfId?: s
     depth += 1;
     cursor = parent.parentId;
   }
-  if (depth > LIMITS.maxCategoryDepth) throw badRequest("Categories are nested too deeply", "too_deep");
+  if (depth > LIMITS.maxCategoryDepth)
+    throw badRequest("Categories are nested too deeply", "too_deep");
 }
 
 export function categoryService(prisma: PrismaClient) {
@@ -31,9 +32,19 @@ export function categoryService(prisma: PrismaClient) {
         if (input.parentId) await assertParent(tx, userId, input.parentId);
         const sortOrder = await tx.category.count({ where: { userId, deletedAt: null } });
         const category = await tx.category.create({
-          data: { ...input, userId, sortOrder, slug: uniqueSlug(input.name, await repo.slugs(tx, userId)) },
+          data: {
+            ...input,
+            userId,
+            sortOrder,
+            slug: uniqueSlug(input.name, await repo.slugs(tx, userId)),
+          },
         });
-        await audit(tx, { actorId: userId, action: "category.create", entityType: "category", entityId: category.id });
+        await audit(tx, {
+          actorId: userId,
+          action: "category.create",
+          entityType: "category",
+          entityId: category.id,
+        });
         return category;
       }),
 
@@ -42,13 +53,20 @@ export function categoryService(prisma: PrismaClient) {
         if (!(await repo.find(tx, userId, id))) throw notFound("Category");
         if (input.parentId) await assertParent(tx, userId, input.parentId, id);
         const category = await tx.category.update({ where: { id }, data: input });
-        await audit(tx, { actorId: userId, action: "category.update", entityType: "category", entityId: id });
+        await audit(tx, {
+          actorId: userId,
+          action: "category.update",
+          entityType: "category",
+          entityId: id,
+        });
         return category;
       }),
 
     reorderCategories: (userId: string, orderedIds: string[]) =>
       prisma.$transaction(async (tx) => {
-        const owned = await tx.category.count({ where: { userId, deletedAt: null, id: { in: orderedIds } } });
+        const owned = await tx.category.count({
+          where: { userId, deletedAt: null, id: { in: orderedIds } },
+        });
         if (owned !== new Set(orderedIds).size) throw notFound("Category");
         for (const [sortOrder, id] of orderedIds.entries()) {
           await tx.category.update({ where: { id }, data: { sortOrder } });
@@ -61,7 +79,12 @@ export function categoryService(prisma: PrismaClient) {
       prisma.$transaction(async (tx) => {
         if (!(await repo.find(tx, userId, id))) throw notFound("Category");
         await tx.category.update({ where: { id }, data: { deletedAt: new Date() } });
-        await audit(tx, { actorId: userId, action: "category.archive", entityType: "category", entityId: id });
+        await audit(tx, {
+          actorId: userId,
+          action: "category.archive",
+          entityType: "category",
+          entityId: id,
+        });
       }),
   };
 }

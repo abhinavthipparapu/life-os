@@ -1,5 +1,17 @@
 import {
-  BarChart3, Bot, Calendar, CheckSquare, FolderTree, Home, LayoutDashboard, LayoutTemplate, ListChecks, Settings, Target, Bell, type LucideIcon,
+  BarChart3,
+  Bot,
+  Calendar,
+  CheckSquare,
+  FolderTree,
+  Home,
+  LayoutDashboard,
+  LayoutTemplate,
+  ListChecks,
+  Settings,
+  Target,
+  Bell,
+  type LucideIcon,
 } from "lucide-react";
 
 export interface NavItem {

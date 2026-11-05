@@ -24,7 +24,9 @@
     "zod": "^4.6.7",
     "@lifeos/domain": "workspace:*",
     "ioredis": "^6.0.0",
-    "rate-limit-redis": "^6.0.2"
+    "rate-limit-redis": "^6.0.2",
+    "@lifeos/config": "workspace:*",
+    "@sentry/node": "11.10.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

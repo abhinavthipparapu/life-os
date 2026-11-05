@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb, wipeLocalData, type CachedOccurrence } from "./db";
-import { cacheOccurrences, enqueueOccurrenceAction, listQueue, pendingIds, readOccurrences, replaceRange, retryWithVersion } from "./queue";
+import {
+  cacheOccurrences,
+  enqueueOccurrenceAction,
+  listQueue,
+  pendingIds,
+  readOccurrences,
+  replaceRange,
+  retryWithVersion,
+} from "./queue";
 
 vi.mock("@/lib/env", () => ({ env: { VITE_API_URL: "http://api.test" } }));
 vi.mock("@/lib/supabase", () => ({ supabase: {} }));
@@ -15,7 +23,15 @@ const row = (id: string, over: Partial<CachedOccurrence> = {}): CachedOccurrence
   value: null,
   note: null,
   taskId: "t",
-  task: { id: "t", title: "T", type: "checkbox", targetValue: null, targetUnit: null, plannerId: "p", planner: { name: "P", color: "#000000" } },
+  task: {
+    id: "t",
+    title: "T",
+    type: "checkbox",
+    targetValue: null,
+    targetUnit: null,
+    plannerId: "p",
+    planner: { name: "P", color: "#000000" },
+  },
   ...over,
 });
 
@@ -69,7 +85,9 @@ describe("offline queue", () => {
     await cacheOccurrences([row("a")]);
     const op = await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete");
     const current = { id: "a", status: "skipped", version: 3 };
-    const summary = await replayQueue(async () => [{ clientOperationId: op.clientOperationId, outcome: "conflict", current }]);
+    const summary = await replayQueue(async () => [
+      { clientOperationId: op.clientOperationId, outcome: "conflict", current },
+    ]);
     expect(summary.conflicts).toHaveLength(1);
     expect((await listQueue())[0]!.conflict).toBe(true);
     const transport = vi.fn(async () => []);
@@ -83,13 +101,19 @@ describe("offline queue", () => {
   it("keeps the queue intact when the network fails mid-replay", async () => {
     await cacheOccurrences([row("a")]);
     await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete");
-    await expect(replayQueue(async () => { throw new Error("offline"); })).rejects.toThrow();
+    await expect(
+      replayQueue(async () => {
+        throw new Error("offline");
+      }),
+    ).rejects.toThrow();
     expect(await listQueue()).toHaveLength(1);
   });
   it("shares one replay across simultaneous triggers", async () => {
     await cacheOccurrences([row("a")]);
     const op = await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete");
-    const transport = vi.fn(async () => [{ clientOperationId: op.clientOperationId, outcome: "accepted" as const }]);
+    const transport = vi.fn(async () => [
+      { clientOperationId: op.clientOperationId, outcome: "accepted" as const },
+    ]);
     await Promise.all([replayQueue(transport), replayQueue(transport), replayQueue(transport)]);
     expect(transport).toHaveBeenCalledTimes(1);
   });
@@ -97,7 +121,11 @@ describe("offline queue", () => {
     await cacheOccurrences([row("a")]);
     await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete");
     const batches: string[][] = [];
-    const accept = (ops: unknown[]) => (ops as { clientOperationId: string }[]).map((o) => ({ clientOperationId: o.clientOperationId, outcome: "accepted" as const }));
+    const accept = (ops: unknown[]) =>
+      (ops as { clientOperationId: string }[]).map((o) => ({
+        clientOperationId: o.clientOperationId,
+        outcome: "accepted" as const,
+      }));
     await replayQueue(async (ops) => {
       batches.push((ops as { action: string }[]).map((o) => o.action));
       if (batches.length === 1) await enqueueOccurrenceAction({ id: "a", version: 1 }, "reopen");
@@ -115,7 +143,13 @@ describe("offline queue", () => {
       if (calls > 1) return [];
       await enqueueOccurrenceAction({ id: "a", version: 1 }, "reopen");
       await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete");
-      return [{ clientOperationId: first.clientOperationId, outcome: "accepted" as const, occurrence: { id: "a", status: "pending", version: 2 } }];
+      return [
+        {
+          clientOperationId: first.clientOperationId,
+          outcome: "accepted" as const,
+          occurrence: { id: "a", status: "pending", version: 2 },
+        },
+      ];
     });
     const cached = (await readOccurrences("2026-03-01", "2026-03-01"))[0]!;
     expect(cached.status).toBe("completed");
@@ -132,7 +166,9 @@ describe("offline queue", () => {
   it("stops if the server replies with ids that match nothing", async () => {
     await cacheOccurrences([row("a")]);
     await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete");
-    const transport = vi.fn(async () => [{ clientOperationId: "unknown", outcome: "accepted" as const }]);
+    const transport = vi.fn(async () => [
+      { clientOperationId: "unknown", outcome: "accepted" as const },
+    ]);
     await replayQueue(transport);
     expect(transport).toHaveBeenCalledTimes(1);
   });

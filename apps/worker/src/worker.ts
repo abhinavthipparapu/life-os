@@ -12,7 +12,13 @@ import { generateOccurrencesJob } from "./jobs/occurrences.js";
 import { drainOutboxJob } from "./jobs/outbox.js";
 import { scanRemindersJob } from "./jobs/reminders.js";
 import { weeklyReportsJob } from "./jobs/weekly-reports.js";
-import { DEAD_LETTER_QUEUE, JOB_OPTIONS, MAINTENANCE_QUEUE, SCHEDULES, type JobName } from "./queues/definitions.js";
+import {
+  DEAD_LETTER_QUEUE,
+  JOB_OPTIONS,
+  MAINTENANCE_QUEUE,
+  SCHEDULES,
+  type JobName,
+} from "./queues/definitions.js";
 
 const env = z
   .object({
@@ -30,10 +36,25 @@ const env = z
   })
   .parse(process.env);
 
+if (process.env.SENTRY_DSN) {
+  const Sentry = await import("@sentry/node");
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    dataCollection: {
+      userInfo: false,
+      httpBodies: [],
+      stackFrameVariables: false,
+      databaseQueryData: false,
+      genAI: { inputs: false, outputs: false },
+    },
+  });
+}
+
 const log = pino({ redact: ["err.config.headers"] });
 const prisma = createPrisma(env.DATABASE_URL);
 const pushConfigured = Boolean(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY && env.VAPID_SUBJECT);
-if (pushConfigured) webpush.setVapidDetails(env.VAPID_SUBJECT!, env.VAPID_PUBLIC_KEY!, env.VAPID_PRIVATE_KEY!);
+if (pushConfigured)
+  webpush.setVapidDetails(env.VAPID_SUBJECT!, env.VAPID_PUBLIC_KEY!, env.VAPID_PRIVATE_KEY!);
 
 const context: JobContext = {
   prisma,
@@ -63,7 +84,8 @@ const context: JobContext = {
         apikey: env.SUPABASE_SERVICE_ROLE_KEY,
       },
     });
-    if (!res.ok && res.status !== 404) throw new Error(`Auth deletion failed with status ${res.status}`);
+    if (!res.ok && res.status !== 404)
+      throw new Error(`Auth deletion failed with status ${res.status}`);
   },
 };
 
@@ -89,7 +111,10 @@ const worker = new Worker(
     const correlationId = randomUUID();
     const started = Date.now();
     const result = await handlers[job.name as JobName]();
-    log.info({ job: job.name, jobId: job.id, correlationId, ms: Date.now() - started, result }, "job finished");
+    log.info(
+      { job: job.name, jobId: job.id, correlationId, ms: Date.now() - started, result },
+      "job finished",
+    );
   },
   { connection, concurrency: 4 },
 );
@@ -97,7 +122,11 @@ const worker = new Worker(
 worker.on("failed", (job, err) => {
   log.error({ job: job?.name, jobId: job?.id, attempts: job?.attemptsMade, err }, "job failed");
   if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
-    void deadLetter.add(job.name, { failedJobId: job.id, reason: err.message, at: new Date().toISOString() });
+    void deadLetter.add(job.name, {
+      failedJobId: job.id,
+      reason: err.message,
+      at: new Date().toISOString(),
+    });
   }
 });
 

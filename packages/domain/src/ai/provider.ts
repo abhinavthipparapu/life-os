@@ -9,7 +9,11 @@ export interface AiResult<T> {
 export interface AiProvider {
   name: string;
   completeJson(system: string, user: string, maxTokens: number): Promise<AiResult<unknown>>;
-  streamText(system: string, user: string, maxTokens: number): AsyncGenerator<string, { tokens: number; model: string }>;
+  streamText(
+    system: string,
+    user: string,
+    maxTokens: number,
+  ): AsyncGenerator<string, { tokens: number; model: string }>;
 }
 
 const estimate = (text: string) => Math.ceil(text.length / 4);
@@ -48,7 +52,15 @@ export function createMockProvider(): AiProvider {
       if (system.includes("INTENT")) {
         const keys = [...system.matchAll(/metric:([a-z0-9_]+)/g)].map((m) => m[1]);
         const metricKey = keys.find((k) => k && user.toLowerCase().includes(k.replace(/_/g, " ")));
-        return { value: { kind: metricKey ? "metric" : "adherence", metricKey: metricKey ?? null, days: 30 }, tokens, model };
+        return {
+          value: {
+            kind: metricKey ? "metric" : "adherence",
+            metricKey: metricKey ?? null,
+            days: 30,
+          },
+          tokens,
+          model,
+        };
       }
       if (system.includes("SCHEDULE")) {
         const ids = [...user.matchAll(/task:([0-9a-f-]{36})/g)].map((m) => m[1]);
@@ -68,7 +80,12 @@ export function createMockProvider(): AiProvider {
             {
               name: "Daily habits",
               tasks: [
-                { title: "Morning review", type: "checkbox", rrule: "FREQ=DAILY", localTime: "08:00" },
+                {
+                  title: "Morning review",
+                  type: "checkbox",
+                  rrule: "FREQ=DAILY",
+                  localTime: "08:00",
+                },
                 {
                   title: "Focused session",
                   type: "duration",
@@ -135,7 +152,11 @@ export function createOpenAiProvider(apiKey: string, model: string): AiProvider 
   };
 }
 
-export function createAiProvider(env: { AI_PROVIDER?: string; OPENAI_API_KEY?: string; OPENAI_MODEL?: string }): AiProvider {
+export function createAiProvider(env: {
+  AI_PROVIDER?: string;
+  OPENAI_API_KEY?: string;
+  OPENAI_MODEL?: string;
+}): AiProvider {
   if (env.AI_PROVIDER !== "openai") return createMockProvider();
   if (!env.OPENAI_API_KEY || !env.OPENAI_MODEL) {
     throw new Error("AI_PROVIDER=openai requires OPENAI_API_KEY and OPENAI_MODEL");

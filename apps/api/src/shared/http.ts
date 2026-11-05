@@ -14,10 +14,12 @@ export class AppError extends Error {
 }
 
 // Missing and not-yours share one response, so IDs of other users' records cannot be probed.
-export const notFound = (entity = "Resource") => new AppError(404, "not_found", `${entity} not found`);
+export const notFound = (entity = "Resource") =>
+  new AppError(404, "not_found", `${entity} not found`);
 export const conflict = (message: string, current?: unknown) =>
   new AppError(409, "version_conflict", message, { current });
-export const badRequest = (message: string, code = "invalid_request") => new AppError(400, code, message);
+export const badRequest = (message: string, code = "invalid_request") =>
+  new AppError(400, code, message);
 
 export function send<T>(res: Response, data: T, meta: ApiEnvelope<T>["meta"] = null, status = 200) {
   const body: ApiEnvelope<T> = { data, meta, error: null };

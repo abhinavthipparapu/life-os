@@ -1,0 +1,39 @@
+# Render blueprint for the API and worker (section 12). Copy to the repo root when connecting Render.
+# Secrets marked sync: false are entered in the Render dashboard and are never stored here.
+services:
+  - type: web
+    name: lifeos-api
+    runtime: docker
+    dockerfilePath: infra/docker/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/ready
+    envVars:
+      - { key: NODE_ENV, value: production }
+      - { key: DATABASE_URL, sync: false }
+      - { key: REDIS_URL, sync: false }
+      - { key: SUPABASE_URL, sync: false }
+      - { key: SUPABASE_JWT_ISSUER, sync: false }
+      - { key: SUPABASE_JWT_AUDIENCE, value: authenticated }
+      - { key: WEB_ORIGIN, sync: false }
+      - { key: AI_PROVIDER, value: openai }
+      - { key: OPENAI_API_KEY, sync: false }
+      - { key: OPENAI_MODEL, sync: false }
+      - { key: SENTRY_DSN, sync: false }
+  - type: worker
+    name: lifeos-worker
+    runtime: docker
+    dockerfilePath: infra/docker/Dockerfile
+    dockerContext: .
+    envVars:
+      - { key: NODE_ENV, value: production }
+      - { key: DATABASE_URL, sync: false }
+      - { key: REDIS_URL, sync: false }
+      - { key: SUPABASE_URL, sync: false }
+      - { key: SUPABASE_SERVICE_ROLE_KEY, sync: false }
+      - { key: AI_PROVIDER, value: openai }
+      - { key: OPENAI_API_KEY, sync: false }
+      - { key: OPENAI_MODEL, sync: false }
+      - { key: VAPID_PUBLIC_KEY, sync: false }
+      - { key: VAPID_PRIVATE_KEY, sync: false }
+      - { key: VAPID_SUBJECT, sync: false }
+      - { key: SENTRY_DSN, sync: false }

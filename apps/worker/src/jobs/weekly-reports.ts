@@ -1,4 +1,9 @@
-import { buildInsightContext, estimateUsage, INSIGHT_SYSTEM, monthlyTokensUsed } from "@lifeos/domain";
+import {
+  buildInsightContext,
+  estimateUsage,
+  INSIGHT_SYSTEM,
+  monthlyTokensUsed,
+} from "@lifeos/domain";
 import type { JobContext } from "./context.js";
 import { claimDelivery } from "./delivery.js";
 
@@ -39,14 +44,24 @@ export async function weeklyReportsJob(ctx: JobContext, now: Date = new Date()) 
       const next = await stream.next();
       if (next.done) {
         await prisma.aiUsage.create({
-          data: { userId, feature: "weekly_report", model: next.value.model, tokens: next.value.tokens },
+          data: {
+            userId,
+            feature: "weekly_report",
+            model: next.value.model,
+            tokens: next.value.tokens,
+          },
         });
         break;
       }
       body += next.value;
     }
     await prisma.notification.create({
-      data: { userId, title: "Your weekly report", body: body.trim().slice(0, 2000), link: "/app/analytics" },
+      data: {
+        userId,
+        title: "Your weekly report",
+        body: body.trim().slice(0, 2000),
+        link: "/app/analytics",
+      },
     });
     summary.sent += 1;
   }

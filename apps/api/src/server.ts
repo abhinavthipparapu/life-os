@@ -5,8 +5,10 @@ import { RedisStore, type RedisReply } from "rate-limit-redis";
 import { createApp } from "./app.js";
 import { loadEnv } from "./config/env.js";
 import { createTokenVerifier, remoteKeys } from "./middleware/auth.js";
+import { initMonitoring } from "./shared/monitoring.js";
 
 const env = loadEnv();
+await initMonitoring(env.SENTRY_DSN, env.NODE_ENV);
 const prisma = createPrisma(env.DATABASE_URL);
 const verifyToken = createTokenVerifier({
   keys: remoteKeys(env.SUPABASE_URL),
@@ -20,7 +22,8 @@ const rateLimitStore = (prefix: string) =>
   redis
     ? new RedisStore({
         prefix,
-        sendCommand: (command: string, ...args: string[]) => redis.call(command, ...args) as Promise<RedisReply>,
+        sendCommand: (command: string, ...args: string[]) =>
+          redis.call(command, ...args) as Promise<RedisReply>,
       })
     : undefined;
 

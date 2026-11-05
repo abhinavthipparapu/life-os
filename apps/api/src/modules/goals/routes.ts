@@ -11,7 +11,9 @@ export function goalRoutes({ prisma }: Deps) {
   router.post("/", async (req, res) =>
     send(res, await service.createGoal(userId(req), parse(createGoal, req.body)), null, 201),
   );
-  router.get("/:id", async (req, res) => send(res, await service.get(userId(req), param(req, "id"))));
+  router.get("/:id", async (req, res) =>
+    send(res, await service.get(userId(req), param(req, "id"))),
+  );
   router.delete("/:id", async (req, res) => {
     await service.archive(userId(req), param(req, "id"));
     res.status(204).end();

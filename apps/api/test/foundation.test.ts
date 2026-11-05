@@ -10,7 +10,8 @@ beforeAll(async () => {
 });
 afterAll(() => h.prisma.$disconnect());
 
-const me = (token: string) => request(h.app).get("/api/v1/me").set("Authorization", `Bearer ${token}`);
+const me = (token: string) =>
+  request(h.app).get("/api/v1/me").set("Authorization", `Bearer ${token}`);
 
 describe("health", () => {
   it("reports live and ready without authentication", async () => {
@@ -57,7 +58,13 @@ describe("token verification", () => {
   });
   it("rejects an unsigned alg=none token", async () => {
     const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
-    const payload = { sub: randomUUID(), iss: ISSUER, aud: AUDIENCE, role: "authenticated", exp: 9999999999 };
+    const payload = {
+      sub: randomUUID(),
+      iss: ISSUER,
+      aud: AUDIENCE,
+      role: "authenticated",
+      exp: 9999999999,
+    };
     expect((await me(`${b64({ alg: "none" })}.${b64(payload)}.`)).status).toBe(401);
   });
   it("rejects service-role tokens used as a user session", async () => {
@@ -66,7 +73,10 @@ describe("token verification", () => {
   it("blocks a user whose access was revoked", async () => {
     const u = await h.user();
     await u.get("/api/v1/me");
-    await h.prisma.profile.update({ where: { authUserId: u.id }, data: { accessRevokedAt: new Date() } });
+    await h.prisma.profile.update({
+      where: { authUserId: u.id },
+      data: { accessRevokedAt: new Date() },
+    });
     const res = await u.get("/api/v1/me");
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe("access_revoked");
@@ -95,11 +105,16 @@ describe("token verification", () => {
 describe("categories", () => {
   it("creates, lists, updates and archives", async () => {
     const u = await h.user();
-    const created = await u.post("/api/v1/categories", { name: "Health & Fitness", color: "#1FAD82" });
+    const created = await u.post("/api/v1/categories", {
+      name: "Health & Fitness",
+      color: "#1FAD82",
+    });
     expect(created.status).toBe(201);
     expect(created.body.data.slug).toBe("health-fitness");
     const id = created.body.data.id;
-    expect((await u.patch(`/api/v1/categories/${id}`, { name: "Health" })).body.data.name).toBe("Health");
+    expect((await u.patch(`/api/v1/categories/${id}`, { name: "Health" })).body.data.name).toBe(
+      "Health",
+    );
     expect((await u.get("/api/v1/categories")).body.data).toHaveLength(1);
     expect((await u.delete(`/api/v1/categories/${id}`)).status).toBe(204);
     expect((await u.get("/api/v1/categories")).body.data).toHaveLength(0);
@@ -113,7 +128,10 @@ describe("categories", () => {
     const u = await h.user();
     const res = await u.post("/api/v1/categories", { name: "", color: "red" });
     expect(res.status).toBe(422);
-    expect(res.body.error.errors.map((e: { path: string }) => e.path).sort()).toEqual(["color", "name"]);
+    expect(res.body.error.errors.map((e: { path: string }) => e.path).sort()).toEqual([
+      "color",
+      "name",
+    ]);
   });
   it("rejects cycles and excess depth", async () => {
     const u = await h.user();
@@ -121,9 +139,13 @@ describe("categories", () => {
       (await u.post("/api/v1/categories", { name, parentId })).body.data?.id;
     const a = await make("A");
     const b = await make("B", a);
-    expect((await u.patch(`/api/v1/categories/${a}`, { parentId: b })).body.error.code).toBe("cycle");
+    expect((await u.patch(`/api/v1/categories/${a}`, { parentId: b })).body.error.code).toBe(
+      "cycle",
+    );
     const c = await make("C", b);
-    expect((await u.post("/api/v1/categories", { name: "D", parentId: c })).body.error.code).toBe("too_deep");
+    expect((await u.post("/api/v1/categories", { name: "D", parentId: c })).body.error.code).toBe(
+      "too_deep",
+    );
   });
   it("records an audit event", async () => {
     const u = await h.user();
@@ -138,7 +160,9 @@ describe("categories", () => {
     expect((await other.patch(`/api/v1/categories/${id}`, { name: "Stolen" })).status).toBe(404);
     expect((await other.delete(`/api/v1/categories/${id}`)).status).toBe(404);
     expect((await other.post("/api/v1/categories/reorder", { orderedIds: [id] })).status).toBe(404);
-    expect((await other.post("/api/v1/categories", { name: "Child", parentId: id })).status).toBe(404);
+    expect((await other.post("/api/v1/categories", { name: "Child", parentId: id })).status).toBe(
+      404,
+    );
     expect((await owner.get("/api/v1/categories")).body.data[0].name).toBe("Private");
   });
 });

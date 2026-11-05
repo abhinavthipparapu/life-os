@@ -6,13 +6,26 @@ import type { ComponentProps, ReactNode } from "react";
 export function NativeSelect({ className, ...props }: ComponentProps<"select">) {
   return (
     <select
-      className={cn("h-11 w-full rounded-lg border border-input bg-surface px-3 text-base text-ink md:text-sm", className)}
+      className={cn(
+        "h-11 w-full rounded-lg border border-input bg-surface px-3 text-base text-ink md:text-sm",
+        className,
+      )}
       {...props}
     />
   );
 }
 
-export function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: ReactNode }) {
+export function Field({
+  id,
+  label,
+  hint,
+  children,
+}: {
+  id: string;
+  label: string;
+  hint?: string;
+  children: ReactNode;
+}) {
   return (
     <div>
       <Label htmlFor={id}>{label}</Label>

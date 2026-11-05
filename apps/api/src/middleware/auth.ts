@@ -95,7 +95,13 @@ export function requireAuth(prisma: PrismaClient, verify: TokenVerifier): Reques
     if (profile.accessRevokedAt || profile.deletedAt) {
       throw new AppError(403, "access_revoked", "Access to this account has been revoked");
     }
-    req.user = { id: profile.authUserId, email: profile.email, role: profile.role, aal: token.aal, issuedAt: token.issuedAt };
+    req.user = {
+      id: profile.authUserId,
+      email: profile.email,
+      role: profile.role,
+      aal: token.aal,
+      issuedAt: token.issuedAt,
+    };
     next();
   };
 }
@@ -111,10 +117,14 @@ export const requireRecentAuth: RequestHandler = (req, _res, next) => {
   next();
 };
 
-export function requireRole(roles: AuthenticatedUser["role"][], requireMfa: boolean): RequestHandler {
+export function requireRole(
+  roles: AuthenticatedUser["role"][],
+  requireMfa: boolean,
+): RequestHandler {
   return (req, _res, next) => {
     // Same response as an unknown route, so the admin surface is not discoverable.
-    if (!req.user || !roles.includes(req.user.role)) throw new AppError(404, "not_found", "Not found");
+    if (!req.user || !roles.includes(req.user.role))
+      throw new AppError(404, "not_found", "Not found");
     if (requireMfa && req.user.aal !== "aal2") {
       throw new AppError(403, "mfa_required", "Multi-factor authentication is required");
     }

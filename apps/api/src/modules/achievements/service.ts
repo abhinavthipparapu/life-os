@@ -66,7 +66,12 @@ export async function evaluateMilestones(
   return {
     dayComplete,
     plannerCompleted,
-    achievements: achievements.map(({ key, title, description, icon }) => ({ key, title, description, icon })),
+    achievements: achievements.map(({ key, title, description, icon }) => ({
+      key,
+      title,
+      description,
+      icon,
+    })),
   };
 }
 

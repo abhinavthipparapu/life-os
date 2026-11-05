@@ -5,10 +5,16 @@ import * as rruleModule from "rrule";
 
 // rrule ships CommonJS to Node and ESM to bundlers, so its exports sit in different places.
 type RRuleExports = typeof rruleModule;
-const { RRule, rrulestr } = (rruleModule as RRuleExports & { default?: RRuleExports }).default ?? rruleModule;
+const { RRule, rrulestr } =
+  (rruleModule as RRuleExports & { default?: RRuleExports }).default ?? rruleModule;
 
 const DAY_MS = 86_400_000;
-const ALLOWED_FREQUENCIES = new Set<number>([RRule.DAILY, RRule.WEEKLY, RRule.MONTHLY, RRule.YEARLY]);
+const ALLOWED_FREQUENCIES = new Set<number>([
+  RRule.DAILY,
+  RRule.WEEKLY,
+  RRule.MONTHLY,
+  RRule.YEARLY,
+]);
 
 export interface ScheduleInput {
   rrule: string;
@@ -20,7 +26,8 @@ export interface ScheduleInput {
 
 const asUtcDate = (date: string) => new Date(`${date}T00:00:00Z`);
 const toDateString = (d: Date) => d.toISOString().slice(0, 10);
-export const addDays = (date: string, days: number) => toDateString(new Date(asUtcDate(date).getTime() + days * DAY_MS));
+export const addDays = (date: string, days: number) =>
+  toDateString(new Date(asUtcDate(date).getTime() + days * DAY_MS));
 
 /** Accepts one RRULE line. Sub-daily rules and DTSTART overrides are refused to bound generation. */
 export function validateRule(rule: string): { ok: true } | { ok: false; reason: string } {
@@ -68,7 +75,14 @@ function offsetMinutes(instant: Date, timezone: string): number {
     second: "numeric",
   }).formatToParts(instant);
   const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
-  const wall = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+  const wall = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour"),
+    get("minute"),
+    get("second"),
+  );
   return (wall - Math.floor(instant.getTime() / 1000) * 1000) / 60_000;
 }
 
@@ -117,10 +131,15 @@ export async function materializeOccurrences(
       taskId: schedule.taskId,
       slotKey: schedule.slot,
       date: asUtcDate(date),
-      scheduledAt: schedule.localTime ? zonedTimeToUtc(date, schedule.localTime, schedule.timezone) : null,
+      scheduledAt: schedule.localTime
+        ? zonedTimeToUtc(date, schedule.localTime, schedule.timezone)
+        : null,
     })),
   });
-  await tx.taskSchedule.update({ where: { id: schedule.id }, data: { generatedUntil: asUtcDate(until) } });
+  await tx.taskSchedule.update({
+    where: { id: schedule.id },
+    data: { generatedUntil: asUtcDate(until) },
+  });
   return count;
 }
 

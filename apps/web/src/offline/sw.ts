@@ -11,7 +11,9 @@ cleanupOutdatedCaches();
 self.addEventListener("fetch", (event) => {
   if (event.request.mode !== "navigate") return;
   event.respondWith(
-    fetch(event.request).catch(async () => (await caches.match("/index.html", { ignoreSearch: true })) ?? Response.error()),
+    fetch(event.request).catch(
+      async () => (await caches.match("/index.html", { ignoreSearch: true })) ?? Response.error(),
+    ),
   );
 });
 

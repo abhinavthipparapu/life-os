@@ -8,7 +8,9 @@ export function taskRoutes({ prisma }: Deps) {
   const router = Router();
   const service = taskService(prisma);
 
-  router.get("/:id", async (req, res) => send(res, await service.getTask(userId(req), param(req, "id"))));
+  router.get("/:id", async (req, res) =>
+    send(res, await service.getTask(userId(req), param(req, "id"))),
+  );
   router.patch("/:id", async (req, res) =>
     send(res, await service.updateTask(userId(req), param(req, "id"), parse(updateTask, req.body))),
   );

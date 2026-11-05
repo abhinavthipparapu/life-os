@@ -9,6 +9,8 @@ const schema = z.object({
   SUPABASE_JWT_ISSUER: z.url(),
   SUPABASE_JWT_AUDIENCE: z.string().default("authenticated"),
   WEB_ORIGIN: z.string().min(1),
+  FEATURE_AI: z.string().optional(),
+  SENTRY_DSN: z.string().optional(),
   AI_PROVIDER: z.enum(["mock", "openai"]).default("mock"),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().optional(),

@@ -15,7 +15,8 @@ export function CelebrationHost() {
 
   useEffect(() => {
     if (!celebration) return;
-    for (const a of celebration.achievements) toast.success(a.title, { description: a.description });
+    for (const a of celebration.achievements)
+      toast.success(a.title, { description: a.description });
     if (celebrations) {
       if (celebration.plannerCompleted) setHero(celebration.plannerCompleted.name);
       else if (celebration.dayComplete) setBurst(true);

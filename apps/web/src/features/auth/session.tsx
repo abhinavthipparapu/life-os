@@ -7,7 +7,10 @@ import { PageSkeleton } from "@/components/common/states";
 import { supabase } from "@/lib/supabase";
 import { wipeLocalData } from "@/offline/db";
 
-const SessionContext = createContext<{ session: Session | null; loading: boolean }>({ session: null, loading: true });
+const SessionContext = createContext<{ session: Session | null; loading: boolean }>({
+  session: null,
+  loading: true,
+});
 export const useSession = () => useContext(SessionContext);
 
 async function removePushSubscription(accessToken?: string) {
@@ -35,10 +38,17 @@ export async function signOut() {
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<{ session: Session | null; loading: boolean }>({ session: null, loading: true });
+  const [state, setState] = useState<{ session: Session | null; loading: boolean }>({
+    session: null,
+    loading: true,
+  });
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data }) => setState({ session: data.session, loading: false }));
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => setState({ session, loading: false }));
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => setState({ session: data.session, loading: false }));
+    const { data } = supabase.auth.onAuthStateChange((_event, session) =>
+      setState({ session, loading: false }),
+    );
     return () => data.subscription.unsubscribe();
   }, []);
   return <SessionContext.Provider value={state}>{children}</SessionContext.Provider>;
@@ -47,7 +57,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 export function RequireAuth() {
   const { session, loading } = useSession();
   const location = useLocation();
-  if (loading) return <div className="p-6"><PageSkeleton /></div>;
+  if (loading)
+    return (
+      <div className="p-6">
+        <PageSkeleton />
+      </div>
+    );
   if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return <Outlet />;
 }

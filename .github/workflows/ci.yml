@@ -1,0 +1,69 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_USER: lifeos, POSTGRES_PASSWORD: ci, POSTGRES_DB: lifeos_test }
+        ports: ["54322:5432"]
+        options: --health-cmd "pg_isready -U lifeos" --health-interval 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://lifeos:ci@127.0.0.1:54322/lifeos_test
+      TEST_DATABASE_URL: postgresql://lifeos:ci@127.0.0.1:54322/lifeos_test
+      SUPABASE_URL: http://127.0.0.1:54321
+      SUPABASE_JWT_ISSUER: http://127.0.0.1:54321/auth/v1
+      WEB_ORIGIN: http://localhost:5173
+      VITE_API_URL: http://localhost:4000
+      VITE_SUPABASE_URL: http://127.0.0.1:54321
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v5
+        with: { node-version-file: .nvmrc }
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:deps
+      - run: pnpm prisma generate
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm prisma validate
+      - name: Schema and migrations match
+        run: |
+          pnpm prisma migrate deploy
+          pnpm prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+      - run: pnpm test
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+      - name: Dependency scan
+        run: pnpm audit --prod --audit-level high
+      - run: pnpm build
+      - name: No server secrets in the browser bundle
+        run: node infra/scripts/check-bundle.mjs
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version-file: .nvmrc }
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm setup:env
+      - run: docker compose up -d --wait
+      - run: pnpm prisma generate && pnpm prisma migrate deploy && pnpm db:seed
+      - run: pnpm --filter @lifeos/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @lifeos/web e2e
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with: { name: playwright-report, path: apps/web/test-results }

@@ -1,7 +1,13 @@
 import { LIMITS, type ApiEnvelope, type SyncOutcome } from "@lifeos/contracts";
 import { env } from "@/lib/env";
 import { supabase } from "@/lib/supabase";
-import { listQueue, markConflict, pendingIds, removeFromQueue, saveServerOccurrence } from "./queue";
+import {
+  listQueue,
+  markConflict,
+  pendingIds,
+  removeFromQueue,
+  saveServerOccurrence,
+} from "./queue";
 
 interface ResultRow {
   clientOperationId: string;
@@ -25,7 +31,10 @@ const httpTransport: Transport = async (operations) => {
   if (!data.session) throw new Error("Not signed in");
   const res = await fetch(`${env.VITE_API_URL}/api/v1/sync/batch`, {
     method: "POST",
-    headers: { "content-type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+    headers: {
+      "content-type": "application/json",
+      Authorization: `Bearer ${data.session.access_token}`,
+    },
     body: JSON.stringify({ operations }),
   });
   if (!res.ok) throw new Error(`Sync failed with status ${res.status}`);
@@ -48,7 +57,9 @@ async function drain(transport: Transport): Promise<SyncSummary> {
   for (;;) {
     const operations = (await listQueue()).filter((op) => !op.conflict);
     if (operations.length === 0) return summary;
-    const batch = operations.slice(0, LIMITS.maxSyncBatch).map(({ queuedAt: _q, conflict: _c, ...op }) => op);
+    const batch = operations
+      .slice(0, LIMITS.maxSyncBatch)
+      .map(({ queuedAt: _q, conflict: _c, ...op }) => op);
     const results = await transport(batch);
     // A reply that matches nothing in this batch can never shrink the queue, so stop here.
     const sentIds = new Set(batch.map((op) => op.clientOperationId));
@@ -60,7 +71,10 @@ async function drain(transport: Transport): Promise<SyncSummary> {
       summary.sent += 1;
       if (result.outcome === "conflict" && result.current) {
         await markConflict(result.clientOperationId);
-        summary.conflicts.push({ clientOperationId: result.clientOperationId, current: result.current });
+        summary.conflicts.push({
+          clientOperationId: result.clientOperationId,
+          current: result.current,
+        });
         continue;
       }
       done.push(result.clientOperationId);

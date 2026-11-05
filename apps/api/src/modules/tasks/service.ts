@@ -1,5 +1,11 @@
 import { localDateOf } from "@lifeos/analytics-core";
-import { LIMITS, type createTask, type reparentTask, type schedule, type updateTask } from "@lifeos/contracts";
+import {
+  LIMITS,
+  type createTask,
+  type reparentTask,
+  type schedule,
+  type updateTask,
+} from "@lifeos/contracts";
 import type { Prisma, PrismaClient } from "@lifeos/db";
 import { materializeOccurrences, reconcileFutureOccurrences, validateRule } from "@lifeos/domain";
 import type { z } from "zod";
@@ -21,7 +27,9 @@ async function ownedTask(tx: Tx, userId: string, id: string) {
 
 async function assertSection(tx: Tx, plannerId: string, sectionId?: string | null) {
   if (!sectionId) return;
-  const found = await tx.plannerSection.findFirst({ where: { id: sectionId, plannerId, deletedAt: null } });
+  const found = await tx.plannerSection.findFirst({
+    where: { id: sectionId, plannerId, deletedAt: null },
+  });
   if (!found) throw notFound("Section");
 }
 
@@ -31,10 +39,12 @@ async function depthOf(tx: Tx, userId: string, plannerId: string, id: string, mo
   let cursor: string | null = id;
   while (cursor) {
     if (cursor === movingId) throw badRequest("A task cannot be moved under itself", "cycle");
-    const node: { parentTaskId: string | null; plannerId: string } | null = await tx.task.findFirst({
-      where: { id: cursor, userId, deletedAt: null },
-      select: { parentTaskId: true, plannerId: true },
-    });
+    const node: { parentTaskId: string | null; plannerId: string } | null = await tx.task.findFirst(
+      {
+        where: { id: cursor, userId, deletedAt: null },
+        select: { parentTaskId: true, plannerId: true },
+      },
+    );
     if (!node || node.plannerId !== plannerId) throw notFound("Parent task");
     depth += 1;
     if (depth > LIMITS.maxTaskDepth + 1) throw badRequest("Task tree is too deep", "too_deep");
@@ -59,22 +69,34 @@ async function subtreeHeight(tx: Tx, id: string): Promise<number> {
 }
 
 /** Parent must share planner and user, and the move must respect depth and child limits. */
-async function validateHierarchy(tx: Tx, userId: string, plannerId: string, parentId: string, moving?: string) {
+async function validateHierarchy(
+  tx: Tx,
+  userId: string,
+  plannerId: string,
+  parentId: string,
+  moving?: string,
+) {
   const parentDepth = await depthOf(tx, userId, plannerId, parentId, moving);
   const height = moving ? await subtreeHeight(tx, moving) : 1;
   if (parentDepth + height > LIMITS.maxTaskDepth) {
     throw badRequest(`Tasks can nest at most ${LIMITS.maxTaskDepth} levels`, "too_deep");
   }
-  const children = await tx.task.count({ where: { parentTaskId: parentId, deletedAt: null, NOT: moving ? { id: moving } : undefined } });
+  const children = await tx.task.count({
+    where: { parentTaskId: parentId, deletedAt: null, NOT: moving ? { id: moving } : undefined },
+  });
   if (children >= LIMITS.maxChildrenPerTask) {
-    throw badRequest(`A task can have at most ${LIMITS.maxChildrenPerTask} subtasks`, "too_many_children");
+    throw badRequest(
+      `A task can have at most ${LIMITS.maxChildrenPerTask} subtasks`,
+      "too_many_children",
+    );
   }
 }
 
 function assertRule(input: ScheduleInput) {
   const check = validateRule(input.rrule);
   if (!check.ok) throw badRequest(check.reason, "invalid_rrule");
-  if (input.endsOn && input.endsOn < input.startsOn) throw badRequest("End date is before start date", "invalid_schedule");
+  if (input.endsOn && input.endsOn < input.startsOn)
+    throw badRequest("End date is before start date", "invalid_schedule");
 }
 
 const scheduleData = (input: ScheduleInput, timezone: string) => ({
@@ -95,7 +117,11 @@ export function taskService(prisma: PrismaClient) {
           schedules: { where: { deletedAt: null } },
           fieldValues: { include: { fieldDefinition: true } },
           children: { where: { deletedAt: null }, orderBy: { sortOrder: "asc" } },
-          occurrences: { orderBy: { date: "desc" }, take: 30, include: { events: { orderBy: { createdAt: "desc" } } } },
+          occurrences: {
+            orderBy: { date: "desc" },
+            take: 30,
+            include: { events: { orderBy: { createdAt: "desc" } } },
+          },
         },
       });
       if (!task) throw notFound("Task");
@@ -109,7 +135,10 @@ export function taskService(prisma: PrismaClient) {
         if (input.parentTaskId) await validateHierarchy(tx, userId, plannerId, input.parentTaskId);
         const total = await tx.task.count({ where: { plannerId, deletedAt: null } });
         if (total >= LIMITS.maxTasksPerPlanner) {
-          throw badRequest(`A planner can hold at most ${LIMITS.maxTasksPerPlanner} tasks`, "too_many_tasks");
+          throw badRequest(
+            `A planner can hold at most ${LIMITS.maxTasksPerPlanner} tasks`,
+            "too_many_tasks",
+          );
         }
         if (input.schedule) assertRule(input.schedule);
         const { schedule: scheduleInput, fields, ...data } = input;
@@ -120,11 +149,20 @@ export function taskService(prisma: PrismaClient) {
         await writeFieldValues(tx, plannerId, task.id, fields ?? {}, true);
         if (scheduleInput) {
           const row = await tx.taskSchedule.create({
-            data: { taskId: task.id, slot: scheduleInput.slot, ...scheduleData(scheduleInput, planner.timezone) },
+            data: {
+              taskId: task.id,
+              slot: scheduleInput.slot,
+              ...scheduleData(scheduleInput, planner.timezone),
+            },
           });
           await materializeOccurrences(tx, userId, row);
         }
-        await audit(tx, { actorId: userId, action: "task.create", entityType: "task", entityId: task.id });
+        await audit(tx, {
+          actorId: userId,
+          action: "task.create",
+          entityType: "task",
+          entityId: task.id,
+        });
         return task;
       }),
 
@@ -142,25 +180,44 @@ export function taskService(prisma: PrismaClient) {
         if (fields) await writeFieldValues(tx, current.plannerId, id, fields, false);
         if (scheduleInput !== undefined) {
           const planner = await ownedPlanner(tx, userId, current.plannerId);
-          const existing = await tx.taskSchedule.findFirst({ where: { taskId: id, deletedAt: null } });
+          const existing = await tx.taskSchedule.findFirst({
+            where: { taskId: id, deletedAt: null },
+          });
           if (scheduleInput === null) {
             if (existing) {
-              await tx.taskSchedule.update({ where: { id: existing.id }, data: { deletedAt: new Date() } });
+              await tx.taskSchedule.update({
+                where: { id: existing.id },
+                data: { deletedAt: new Date() },
+              });
               const today = toDate(localDateOf(new Date(), existing.timezone));
               await tx.taskOccurrence.deleteMany({
-                where: { taskId: id, status: "pending", date: { gte: today }, events: { none: {} } },
+                where: {
+                  taskId: id,
+                  status: "pending",
+                  date: { gte: today },
+                  events: { none: {} },
+                },
               });
             }
           } else {
             const row = await tx.taskSchedule.upsert({
               where: { taskId_slot: { taskId: id, slot: scheduleInput.slot } },
-              create: { taskId: id, slot: scheduleInput.slot, ...scheduleData(scheduleInput, planner.timezone) },
+              create: {
+                taskId: id,
+                slot: scheduleInput.slot,
+                ...scheduleData(scheduleInput, planner.timezone),
+              },
               update: { ...scheduleData(scheduleInput, planner.timezone), deletedAt: null },
             });
             await reconcileFutureOccurrences(tx, userId, row);
           }
         }
-        await audit(tx, { actorId: userId, action: "task.update", entityType: "task", entityId: id });
+        await audit(tx, {
+          actorId: userId,
+          action: "task.update",
+          entityType: "task",
+          entityId: id,
+        });
         return tx.task.findUniqueOrThrow({ where: { id } });
       }),
 
@@ -193,7 +250,7 @@ export function taskService(prisma: PrismaClient) {
       prisma.$transaction(async (tx) => {
         await ownedTask(tx, userId, id);
         const ids = [id];
-        for (let level = [id]; level.length; ) {
+        for (let level = [id]; level.length;) {
           const rows = await tx.task.findMany({
             where: { parentTaskId: { in: level }, deletedAt: null },
             select: { id: true },
@@ -201,11 +258,19 @@ export function taskService(prisma: PrismaClient) {
           level = rows.map((r) => r.id);
           ids.push(...level);
         }
-        await tx.task.updateMany({ where: { id: { in: ids }, userId }, data: { deletedAt: new Date() } });
+        await tx.task.updateMany({
+          where: { id: { in: ids }, userId },
+          data: { deletedAt: new Date() },
+        });
         await tx.taskOccurrence.deleteMany({
           where: { taskId: { in: ids }, userId, status: "pending", events: { none: {} } },
         });
-        await audit(tx, { actorId: userId, action: "task.archive", entityType: "task", entityId: id });
+        await audit(tx, {
+          actorId: userId,
+          action: "task.archive",
+          entityType: "task",
+          entityId: id,
+        });
       }),
   };
 }

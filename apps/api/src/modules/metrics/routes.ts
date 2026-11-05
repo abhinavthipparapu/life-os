@@ -22,7 +22,10 @@ export function metricLogRoutes({ prisma }: Deps) {
   const router = Router();
   const service = metricService(prisma);
   router.get("/", async (req, res) => {
-    const { page, nextCursor } = await service.listLogs(userId(req), parse(metricLogQuery, req.query));
+    const { page, nextCursor } = await service.listLogs(
+      userId(req),
+      parse(metricLogQuery, req.query),
+    );
     send(res, page, { nextCursor });
   });
   router.post("/", async (req, res) =>

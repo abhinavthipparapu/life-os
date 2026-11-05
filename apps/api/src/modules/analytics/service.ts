@@ -4,10 +4,14 @@ import type { PrismaClient } from "@lifeos/db";
 import { notFound } from "../../shared/http.js";
 import { dailyCounts, metricBuckets, occurrenceBuckets, type ScopeFilter } from "@lifeos/domain";
 
-const DENOMINATOR = "completed + missed; skipped, rest, not-applicable and unfinished tasks for today excluded";
+const DENOMINATOR =
+  "completed + missed; skipped, rest, not-applicable and unfinished tasks for today excluded";
 
 export async function userTimezone(prisma: PrismaClient, userId: string) {
-  const p = await prisma.profile.findUniqueOrThrow({ where: { authUserId: userId }, select: { timezone: true } });
+  const p = await prisma.profile.findUniqueOrThrow({
+    where: { authUserId: userId },
+    select: { timezone: true },
+  });
   return p.timezone;
 }
 
@@ -15,9 +19,15 @@ export function analyticsService(prisma: PrismaClient) {
   /** Foreign IDs fail here with the same 404 as missing ones. */
   async function assertScope(userId: string, spec: ScopeFilter & { metricId?: string }) {
     const checks = await Promise.all([
-      spec.plannerId ? prisma.planner.count({ where: { id: spec.plannerId, userId, deletedAt: null } }) : 1,
-      spec.categoryId ? prisma.category.count({ where: { id: spec.categoryId, userId, deletedAt: null } }) : 1,
-      spec.metricId ? prisma.metricDefinition.count({ where: { id: spec.metricId, userId, deletedAt: null } }) : 1,
+      spec.plannerId
+        ? prisma.planner.count({ where: { id: spec.plannerId, userId, deletedAt: null } })
+        : 1,
+      spec.categoryId
+        ? prisma.category.count({ where: { id: spec.categoryId, userId, deletedAt: null } })
+        : 1,
+      spec.metricId
+        ? prisma.metricDefinition.count({ where: { id: spec.metricId, userId, deletedAt: null } })
+        : 1,
     ]);
     if (checks.some((c) => c === 0)) throw notFound();
   }
@@ -29,13 +39,24 @@ export function analyticsService(prisma: PrismaClient) {
       const meta = { from: spec.from, to: spec.to, grain: spec.grain, timezone };
       if (spec.source === "metric") {
         const measure = spec.measure as "sum" | "avg" | "min" | "max" | "count";
-        const points = await metricBuckets(prisma, userId, spec.metricId!, spec.from, spec.to, spec.grain, measure);
+        const points = await metricBuckets(
+          prisma,
+          userId,
+          spec.metricId!,
+          spec.from,
+          spec.to,
+          spec.grain,
+          measure,
+        );
         return { points, meta };
       }
       // Future occurrences have not happened yet, so they must not lower adherence.
       const today = localDateOf(new Date(), timezone);
       const to = spec.to < today ? spec.to : today;
-      const rows = spec.from > to ? [] : await occurrenceBuckets(prisma, userId, spec.from, to, spec.grain, spec, today);
+      const rows =
+        spec.from > to
+          ? []
+          : await occurrenceBuckets(prisma, userId, spec.from, to, spec.grain, spec, today);
       const points = rows.map((r) => {
         const value =
           spec.measure === "adherence"
@@ -55,7 +76,8 @@ export function analyticsService(prisma: PrismaClient) {
       const timezone = await userTimezone(prisma, userId);
       const today = localDateOf(new Date(), timezone);
       const end = to < today ? to : today;
-      const rows = from > end ? [] : await occurrenceBuckets(prisma, userId, from, end, "day", scope, today);
+      const rows =
+        from > end ? [] : await occurrenceBuckets(prisma, userId, from, end, "day", scope, today);
       const totals = rows.reduce(
         (a, r) => ({
           eligible: a.eligible + r.eligible,
@@ -66,7 +88,15 @@ export function analyticsService(prisma: PrismaClient) {
         }),
         { eligible: 0, completed: 0, skipped: 0, rest: 0, notApplicable: 0 },
       );
-      return { ...totals, adherence: adherence(totals), days: rows, from, to: end, timezone, denominator: DENOMINATOR };
+      return {
+        ...totals,
+        adherence: adherence(totals),
+        days: rows,
+        from,
+        to: end,
+        timezone,
+        denominator: DENOMINATOR,
+      };
     },
 
     async home(userId: string) {
@@ -83,12 +113,26 @@ export function analyticsService(prisma: PrismaClient) {
         }),
         prisma.goal.count({ where: { userId, deletedAt: null } }),
       ]);
-      const counts = buckets[0] ?? { eligible: 0, completed: 0, skipped: 0, rest: 0, notApplicable: 0 };
+      const counts = buckets[0] ?? {
+        eligible: 0,
+        completed: 0,
+        skipped: 0,
+        rest: 0,
+        notApplicable: 0,
+      };
       const suggestions: string[] = [];
       if (planners.length === 0) suggestions.push("create_planner");
       else if (counts.eligible === 0) suggestions.push("schedule_task");
       if (goals === 0) suggestions.push("create_goal");
-      return { today, timezone, counts, score: dailyScore(counts), streak: streaks(days, today), planners, suggestions };
+      return {
+        today,
+        timezone,
+        counts,
+        score: dailyScore(counts),
+        streak: streaks(days, today),
+        planners,
+        suggestions,
+      };
     },
   };
 }

@@ -47,12 +47,21 @@ export async function drainOutboxJob(ctx: JobContext) {
       for (const event of claimed) {
         try {
           await handle(ctx, event);
-          await tx.outboxEvent.update({ where: { id: event.id }, data: { processedAt: new Date() } });
+          await tx.outboxEvent.update({
+            where: { id: event.id },
+            data: { processedAt: new Date() },
+          });
           stats.processed += 1;
         } catch (err) {
-          await tx.outboxEvent.update({ where: { id: event.id }, data: { attempts: { increment: 1 } } });
+          await tx.outboxEvent.update({
+            where: { id: event.id },
+            data: { attempts: { increment: 1 } },
+          });
           stats.failed += 1;
-          ctx.log.error({ err, eventId: String(event.id), type: event.type }, "outbox event failed");
+          ctx.log.error(
+            { err, eventId: String(event.id), type: event.type },
+            "outbox event failed",
+          );
         }
       }
     },

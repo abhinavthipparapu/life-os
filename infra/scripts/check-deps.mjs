@@ -4,7 +4,9 @@
 import { readFileSync } from "node:fs";
 
 if (readFileSync("pnpm-workspace.yaml", "utf8").includes("minimumReleaseAgeExclude")) {
-  console.error("pnpm-workspace.yaml contains minimumReleaseAgeExclude. Pin an older version instead.");
+  console.error(
+    "pnpm-workspace.yaml contains minimumReleaseAgeExclude. Pin an older version instead.",
+  );
   process.exit(1);
 }
 console.log("No release-age exclusions.");

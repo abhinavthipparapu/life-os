@@ -25,21 +25,27 @@ function checkValue(def: Definition, value: unknown) {
   switch (def.type) {
     case "number":
     case "rating":
-      if (typeof value !== "number" || !Number.isFinite(value)) invalid(def.key, "Must be a number");
-      if (rules.min !== undefined && value < rules.min) invalid(def.key, `Must be at least ${rules.min}`);
-      if (rules.max !== undefined && value > rules.max) invalid(def.key, `Must be at most ${rules.max}`);
+      if (typeof value !== "number" || !Number.isFinite(value))
+        invalid(def.key, "Must be a number");
+      if (rules.min !== undefined && value < rules.min)
+        invalid(def.key, `Must be at least ${rules.min}`);
+      if (rules.max !== undefined && value > rules.max)
+        invalid(def.key, `Must be at most ${rules.max}`);
       break;
     case "boolean":
       if (typeof value !== "boolean") invalid(def.key, "Must be true or false");
       break;
     case "date":
-      if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) invalid(def.key, "Must be a date");
+      if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value))
+        invalid(def.key, "Must be a date");
       break;
     case "select":
-      if (typeof value !== "string" || !rules.options?.includes(value)) invalid(def.key, "Must be one of the options");
+      if (typeof value !== "string" || !rules.options?.includes(value))
+        invalid(def.key, "Must be one of the options");
       break;
     default:
-      if (typeof value !== "string" || value.length > 2000) invalid(def.key, "Must be text up to 2000 characters");
+      if (typeof value !== "string" || value.length > 2000)
+        invalid(def.key, "Must be text up to 2000 characters");
   }
 }
 
@@ -58,7 +64,8 @@ export async function writeFieldValues(
   }
   if (isCreate) {
     for (const def of definitions) {
-      if ((def.validationJson as Rules).required && fields[def.key] === undefined) invalid(def.key, "Required");
+      if ((def.validationJson as Rules).required && fields[def.key] === undefined)
+        invalid(def.key, "Required");
     }
   }
   for (const [key, value] of Object.entries(fields)) {

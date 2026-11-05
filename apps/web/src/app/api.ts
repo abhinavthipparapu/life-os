@@ -1,10 +1,33 @@
 import type { ApiEnvelope, ProblemDetails, QuerySpec } from "@lifeos/contracts";
-import { createApi, fetchBaseQuery, type BaseQueryFn, type FetchArgs } from "@reduxjs/toolkit/query/react";
+import {
+  createApi,
+  fetchBaseQuery,
+  type BaseQueryFn,
+  type FetchArgs,
+} from "@reduxjs/toolkit/query/react";
 import { env } from "@/lib/env";
 import { supabase } from "@/lib/supabase";
 import type {
-  AccountRequest, Achievement, AdherenceResult, AiDraft, AiUsage, Category, Dashboard, Goal, HomeSummary, Metric, MetricLog,
-  Notification, Occurrence, Planner, PlannerDetail, Profile, SeriesPoint, TaskDetail, TaskRow, Template,
+  AccountRequest,
+  Achievement,
+  AdherenceResult,
+  AiDraft,
+  AiUsage,
+  Category,
+  Dashboard,
+  Goal,
+  HomeSummary,
+  Metric,
+  MetricLog,
+  Notification,
+  Occurrence,
+  Planner,
+  PlannerDetail,
+  Profile,
+  SeriesPoint,
+  TaskDetail,
+  TaskRow,
+  Template,
 } from "./types";
 
 export interface ApiError {
@@ -22,7 +45,13 @@ const raw = fetchBaseQuery({
 });
 
 /** Unwraps the {data, meta, error} envelope, so components only handle data or a typed problem. */
-const baseQuery: BaseQueryFn<string | FetchArgs, unknown, ApiError, object, { envelopeMeta?: ApiEnvelope<unknown>["meta"] }> = async (args, api, extra) => {
+const baseQuery: BaseQueryFn<
+  string | FetchArgs,
+  unknown,
+  ApiError,
+  object,
+  { envelopeMeta?: ApiEnvelope<unknown>["meta"] }
+> = async (args, api, extra) => {
   const result = await raw(args, api, extra);
   if (result.error) {
     const body = result.error.data as ApiEnvelope<unknown> | undefined;
@@ -35,7 +64,11 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, ApiError, object, { en
     return {
       error: {
         status,
-        problem: body?.error ?? { type: "about:blank", title: status === 0 ? "You appear to be offline" : "Something went wrong", status },
+        problem: body?.error ?? {
+          type: "about:blank",
+          title: status === 0 ? "You appear to be offline" : "Something went wrong",
+          status,
+        },
       },
     };
   }
@@ -53,7 +86,24 @@ type Paged<T> = { items: T[]; nextCursor: string | null };
 export const api = createApi({
   reducerPath: "api",
   baseQuery,
-  tagTypes: ["Me", "Category", "Planner", "Task", "Occurrence", "Metric", "MetricLog", "Goal", "Template", "Dashboard", "Analytics", "Home", "Notification", "Achievement", "AiUsage", "Request"],
+  tagTypes: [
+    "Me",
+    "Category",
+    "Planner",
+    "Task",
+    "Occurrence",
+    "Metric",
+    "MetricLog",
+    "Goal",
+    "Template",
+    "Dashboard",
+    "Analytics",
+    "Home",
+    "Notification",
+    "Achievement",
+    "AiUsage",
+    "Request",
+  ],
   endpoints: (b) => ({
     me: b.query<Profile, void>({ query: () => "/me", providesTags: ["Me"] }),
     updateProfile: b.mutation<Profile, Partial<Pick<Profile, "displayName" | "timezone">>>({
@@ -64,7 +114,10 @@ export const api = createApi({
       query: (body) => ({ url: "/me/preferences", method: "PATCH", body }),
       invalidatesTags: ["Me"],
     }),
-    accountRequests: b.query<AccountRequest[], void>({ query: () => "/me/requests", providesTags: ["Request"] }),
+    accountRequests: b.query<AccountRequest[], void>({
+      query: () => "/me/requests",
+      providesTags: ["Request"],
+    }),
     requestExport: b.mutation<AccountRequest, void>({
       query: () => ({ url: "/me/export", method: "POST", body: {} }),
       invalidatesTags: ["Request"],
@@ -75,7 +128,10 @@ export const api = createApi({
     }),
     home: b.query<HomeSummary, void>({ query: () => "/home", providesTags: ["Home"] }),
 
-    categories: b.query<Category[], void>({ query: () => "/categories", providesTags: (r) => list("Category", r) }),
+    categories: b.query<Category[], void>({
+      query: () => "/categories",
+      providesTags: (r) => list("Category", r),
+    }),
     createCategory: b.mutation<Category, Partial<Category>>({
       query: (body) => ({ url: "/categories", method: "POST", body }),
       invalidatesTags: [{ type: "Category", id: "LIST" }],
@@ -93,41 +149,77 @@ export const api = createApi({
       invalidatesTags: [{ type: "Category", id: "LIST" }],
     }),
 
-    planners: b.query<Paged<Planner>, { search?: string; categoryId?: string; cursor?: string; limit?: number }>({
+    planners: b.query<
+      Paged<Planner>,
+      { search?: string; categoryId?: string; cursor?: string; limit?: number }
+    >({
       query: (params) => ({ url: "/planners", params }),
-      transformResponse: (items: Planner[], meta: { envelopeMeta?: { nextCursor?: string | null } | null }) => ({
+      transformResponse: (
+        items: Planner[],
+        meta: { envelopeMeta?: { nextCursor?: string | null } | null },
+      ) => ({
         items,
         nextCursor: meta?.envelopeMeta?.nextCursor ?? null,
       }),
       providesTags: (r) => list("Planner", r?.items),
     }),
-    planner: b.query<PlannerDetail, string>({ query: (id) => `/planners/${id}`, providesTags: (_r, _e, id) => [{ type: "Planner", id }] }),
+    planner: b.query<PlannerDetail, string>({
+      query: (id) => `/planners/${id}`,
+      providesTags: (_r, _e, id) => [{ type: "Planner", id }],
+    }),
     createPlanner: b.mutation<Planner, Record<string, unknown>>({
-      query: (body) => ({ url: "/planners", method: "POST", body, headers: { "Idempotency-Key": crypto.randomUUID() } }),
+      query: (body) => ({
+        url: "/planners",
+        method: "POST",
+        body,
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+      }),
       invalidatesTags: [{ type: "Planner", id: "LIST" }, "Home"],
     }),
-    updatePlanner: b.mutation<Planner, { id: string; expectedVersion: number } & Record<string, unknown>>({
+    updatePlanner: b.mutation<
+      Planner,
+      { id: string; expectedVersion: number } & Record<string, unknown>
+    >({
       query: ({ id, ...body }) => ({ url: `/planners/${id}`, method: "PATCH", body }),
-      invalidatesTags: (_r, _e, { id }) => [{ type: "Planner", id }, { type: "Planner", id: "LIST" }],
+      invalidatesTags: (_r, _e, { id }) => [
+        { type: "Planner", id },
+        { type: "Planner", id: "LIST" },
+      ],
     }),
     archivePlanner: b.mutation<void, string>({
       query: (id) => ({ url: `/planners/${id}`, method: "DELETE" }),
       invalidatesTags: [{ type: "Planner", id: "LIST" }, "Home", "Occurrence"],
     }),
     clonePlanner: b.mutation<Planner, string>({
-      query: (id) => ({ url: `/planners/${id}/clone`, method: "POST", body: {}, headers: { "Idempotency-Key": crypto.randomUUID() } }),
+      query: (id) => ({
+        url: `/planners/${id}/clone`,
+        method: "POST",
+        body: {},
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+      }),
       invalidatesTags: [{ type: "Planner", id: "LIST" }, "Occurrence"],
     }),
     createSection: b.mutation<{ id: string }, { plannerId: string; name: string }>({
-      query: ({ plannerId, name }) => ({ url: `/planners/${plannerId}/sections`, method: "POST", body: { name } }),
+      query: ({ plannerId, name }) => ({
+        url: `/planners/${plannerId}/sections`,
+        method: "POST",
+        body: { name },
+      }),
       invalidatesTags: (_r, _e, { plannerId }) => [{ type: "Planner", id: plannerId }],
     }),
     createField: b.mutation<{ id: string }, { plannerId: string } & Record<string, unknown>>({
-      query: ({ plannerId, ...body }) => ({ url: `/planners/${plannerId}/fields`, method: "POST", body }),
+      query: ({ plannerId, ...body }) => ({
+        url: `/planners/${plannerId}/fields`,
+        method: "POST",
+        body,
+      }),
       invalidatesTags: (_r, _e, { plannerId }) => [{ type: "Planner", id: plannerId }],
     }),
 
-    task: b.query<TaskDetail, string>({ query: (id) => `/tasks/${id}`, providesTags: (_r, _e, id) => [{ type: "Task", id }] }),
+    task: b.query<TaskDetail, string>({
+      query: (id) => `/tasks/${id}`,
+      providesTags: (_r, _e, id) => [{ type: "Task", id }],
+    }),
     createTask: b.mutation<TaskRow, { plannerId: string } & Record<string, unknown>>({
       query: ({ plannerId, ...body }) => ({
         url: `/planners/${plannerId}/tasks`,
@@ -135,31 +227,68 @@ export const api = createApi({
         body,
         headers: { "Idempotency-Key": crypto.randomUUID() },
       }),
-      invalidatesTags: (_r, _e, { plannerId }) => [{ type: "Planner", id: plannerId }, "Occurrence", "Home"],
+      invalidatesTags: (_r, _e, { plannerId }) => [
+        { type: "Planner", id: plannerId },
+        "Occurrence",
+        "Home",
+      ],
     }),
-    updateTask: b.mutation<TaskRow, { id: string; plannerId: string; expectedVersion: number } & Record<string, unknown>>({
+    updateTask: b.mutation<
+      TaskRow,
+      { id: string; plannerId: string; expectedVersion: number } & Record<string, unknown>
+    >({
       query: ({ id, plannerId: _p, ...body }) => ({ url: `/tasks/${id}`, method: "PATCH", body }),
-      invalidatesTags: (_r, _e, { id, plannerId }) => [{ type: "Task", id }, { type: "Planner", id: plannerId }, "Occurrence"],
+      invalidatesTags: (_r, _e, { id, plannerId }) => [
+        { type: "Task", id },
+        { type: "Planner", id: plannerId },
+        "Occurrence",
+      ],
     }),
-    reparentTask: b.mutation<TaskRow, { id: string; plannerId: string; parentTaskId: string | null; sortOrder?: number; expectedVersion: number }>({
-      query: ({ id, plannerId: _p, ...body }) => ({ url: `/tasks/${id}/reparent`, method: "POST", body }),
-      invalidatesTags: (_r, _e, { id, plannerId }) => [{ type: "Task", id }, { type: "Planner", id: plannerId }],
+    reparentTask: b.mutation<
+      TaskRow,
+      {
+        id: string;
+        plannerId: string;
+        parentTaskId: string | null;
+        sortOrder?: number;
+        expectedVersion: number;
+      }
+    >({
+      query: ({ id, plannerId: _p, ...body }) => ({
+        url: `/tasks/${id}/reparent`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: (_r, _e, { id, plannerId }) => [
+        { type: "Task", id },
+        { type: "Planner", id: plannerId },
+      ],
     }),
     archiveTask: b.mutation<void, { id: string; plannerId: string }>({
       query: ({ id }) => ({ url: `/tasks/${id}`, method: "DELETE" }),
-      invalidatesTags: (_r, _e, { plannerId }) => [{ type: "Planner", id: plannerId }, "Occurrence", "Home"],
+      invalidatesTags: (_r, _e, { plannerId }) => [
+        { type: "Planner", id: plannerId },
+        "Occurrence",
+        "Home",
+      ],
     }),
 
     occurrences: b.query<Occurrence[], { from: string; to: string; plannerId?: string }>({
       query: (params) => ({ url: "/occurrences", params }),
       providesTags: ["Occurrence"],
     }),
-    deferOccurrence: b.mutation<Occurrence, { id: string; toDate: string; expectedVersion?: number }>({
+    deferOccurrence: b.mutation<
+      Occurrence,
+      { id: string; toDate: string; expectedVersion?: number }
+    >({
       query: ({ id, ...body }) => ({ url: `/occurrences/${id}/defer`, method: "POST", body }),
       invalidatesTags: ["Occurrence", "Home", "Analytics"],
     }),
 
-    metrics: b.query<Metric[], void>({ query: () => "/metrics", providesTags: (r) => list("Metric", r) }),
+    metrics: b.query<Metric[], void>({
+      query: () => "/metrics",
+      providesTags: (r) => list("Metric", r),
+    }),
     createMetric: b.mutation<Metric, Record<string, unknown>>({
       query: (body) => ({ url: "/metrics", method: "POST", body }),
       invalidatesTags: [{ type: "Metric", id: "LIST" }],
@@ -195,7 +324,10 @@ export const api = createApi({
       query: (body) => ({ url: "/templates", method: "POST", body }),
       invalidatesTags: [{ type: "Template", id: "LIST" }],
     }),
-    instantiateTemplate: b.mutation<Planner, { id: string; version?: number; categoryId?: string | null; name?: string }>({
+    instantiateTemplate: b.mutation<
+      Planner,
+      { id: string; version?: number; categoryId?: string | null; name?: string }
+    >({
       query: ({ id, ...body }) => ({
         url: `/templates/${id}/instantiate`,
         method: "POST",
@@ -205,15 +337,24 @@ export const api = createApi({
       invalidatesTags: [{ type: "Planner", id: "LIST" }, "Occurrence", "Home"],
     }),
 
-    dashboards: b.query<Dashboard[], void>({ query: () => "/dashboards", providesTags: (r) => list("Dashboard", r) }),
-    dashboard: b.query<Dashboard, string>({ query: (id) => `/dashboards/${id}`, providesTags: (_r, _e, id) => [{ type: "Dashboard", id }] }),
+    dashboards: b.query<Dashboard[], void>({
+      query: () => "/dashboards",
+      providesTags: (r) => list("Dashboard", r),
+    }),
+    dashboard: b.query<Dashboard, string>({
+      query: (id) => `/dashboards/${id}`,
+      providesTags: (_r, _e, id) => [{ type: "Dashboard", id }],
+    }),
     createDashboard: b.mutation<Dashboard, Record<string, unknown>>({
       query: (body) => ({ url: "/dashboards", method: "POST", body }),
       invalidatesTags: [{ type: "Dashboard", id: "LIST" }],
     }),
     updateDashboard: b.mutation<Dashboard, { id: string } & Record<string, unknown>>({
       query: ({ id, ...body }) => ({ url: `/dashboards/${id}`, method: "PATCH", body }),
-      invalidatesTags: (_r, _e, { id }) => [{ type: "Dashboard", id }, { type: "Dashboard", id: "LIST" }],
+      invalidatesTags: (_r, _e, { id }) => [
+        { type: "Dashboard", id },
+        { type: "Dashboard", id: "LIST" },
+      ],
     }),
     archiveDashboard: b.mutation<void, string>({
       query: (id) => ({ url: `/dashboards/${id}`, method: "DELETE" }),
@@ -223,7 +364,10 @@ export const api = createApi({
       query: (body) => ({ url: "/analytics/query", method: "POST", body }),
       providesTags: ["Analytics"],
     }),
-    adherence: b.query<AdherenceResult, { from: string; to: string; plannerId?: string; categoryId?: string }>({
+    adherence: b.query<
+      AdherenceResult,
+      { from: string; to: string; plannerId?: string; categoryId?: string }
+    >({
       query: (params) => ({ url: "/analytics/adherence", params }),
       providesTags: ["Analytics"],
     }),
@@ -233,16 +377,39 @@ export const api = createApi({
       query: (body) => ({ url: "/ai/planner-drafts", method: "POST", body }),
       invalidatesTags: ["AiUsage"],
     }),
-    applyDraft: b.mutation<Planner, { id: string; snapshot?: unknown; categoryId?: string | null }>({
-      query: ({ id, ...body }) => ({ url: `/ai/planner-drafts/${id}/apply`, method: "POST", body }),
-      invalidatesTags: [{ type: "Planner", id: "LIST" }, "Occurrence", "Home"],
-    }),
-    askData: b.mutation<{ answer: string; sources: { label: string; value: number | null; unit?: string | null }[]; range: { from: string; to: string } }, string>({
+    applyDraft: b.mutation<Planner, { id: string; snapshot?: unknown; categoryId?: string | null }>(
+      {
+        query: ({ id, ...body }) => ({
+          url: `/ai/planner-drafts/${id}/apply`,
+          method: "POST",
+          body,
+        }),
+        invalidatesTags: [{ type: "Planner", id: "LIST" }, "Occurrence", "Home"],
+      },
+    ),
+    askData: b.mutation<
+      {
+        answer: string;
+        sources: { label: string; value: number | null; unit?: string | null }[];
+        range: { from: string; to: string };
+      },
+      string
+    >({
       query: (question) => ({ url: "/ai/ask", method: "POST", body: { question } }),
       invalidatesTags: ["AiUsage"],
     }),
     suggestSchedule: b.mutation<
-      { draft: { id: string }; proposals: { taskId: string; title: string; current: string | null; localTime: string; reason: string }[]; conflicts: string[] },
+      {
+        draft: { id: string };
+        proposals: {
+          taskId: string;
+          title: string;
+          current: string | null;
+          localTime: string;
+          reason: string;
+        }[];
+        conflicts: string[];
+      },
       { plannerId: string; constraints: string }
     >({
       query: (body) => ({ url: "/ai/schedule-suggestions", method: "POST", body }),
@@ -253,7 +420,10 @@ export const api = createApi({
       invalidatesTags: ["Occurrence", { type: "Planner", id: "LIST" }],
     }),
 
-    notifications: b.query<Notification[], void>({ query: () => "/notifications", providesTags: ["Notification"] }),
+    notifications: b.query<Notification[], void>({
+      query: () => "/notifications",
+      providesTags: ["Notification"],
+    }),
     readNotification: b.mutation<void, string>({
       query: (id) => ({ url: `/notifications/${id}/read`, method: "POST", body: {} }),
       invalidatesTags: ["Notification"],
@@ -262,19 +432,53 @@ export const api = createApi({
       query: () => ({ url: "/notifications/read-all", method: "POST", body: {} }),
       invalidatesTags: ["Notification"],
     }),
-    achievements: b.query<Achievement[], void>({ query: () => "/achievements", providesTags: ["Achievement"] }),
+    achievements: b.query<Achievement[], void>({
+      query: () => "/achievements",
+      providesTags: ["Achievement"],
+    }),
 
-    adminAudit: b.query<{ id: string; action: string; entityType: string; entityId: string | null; actorId: string | null; createdAt: string }[], { action?: string }>({
+    adminAudit: b.query<
+      {
+        id: string;
+        action: string;
+        entityType: string;
+        entityId: string | null;
+        actorId: string | null;
+        createdAt: string;
+      }[],
+      { action?: string }
+    >({
       query: (params) => ({ url: "/admin/audit-events", params }),
     }),
-    adminUsers: b.query<{ authUserId: string; email: string; role: string; createdAt: string; accessRevokedAt: string | null }[], string>({
+    adminUsers: b.query<
+      {
+        authUserId: string;
+        email: string;
+        role: string;
+        createdAt: string;
+        accessRevokedAt: string | null;
+      }[],
+      string
+    >({
       query: (email) => ({ url: "/admin/users", params: { email } }),
     }),
-    adminJobs: b.query<{ pendingOutbox: number; oldestPendingSeconds: number; failuresLast24h: number; jobs: { job: string; status: string; count: number }[] }, void>({
+    adminJobs: b.query<
+      {
+        pendingOutbox: number;
+        oldestPendingSeconds: number;
+        failuresLast24h: number;
+        jobs: { job: string; status: string; count: number }[];
+      },
+      void
+    >({
       query: () => "/admin/jobs/health",
     }),
     adminRevoke: b.mutation<void, { id: string; reason: string }>({
-      query: ({ id, reason }) => ({ url: `/admin/users/${id}/revoke`, method: "POST", body: { confirm: "REVOKE", reason } }),
+      query: ({ id, reason }) => ({
+        url: `/admin/users/${id}/revoke`,
+        method: "POST",
+        body: { confirm: "REVOKE", reason },
+      }),
     }),
   }),
 });

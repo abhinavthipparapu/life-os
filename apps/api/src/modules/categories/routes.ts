@@ -10,14 +10,22 @@ export function categoryRoutes({ prisma }: Deps) {
 
   router.get("/", async (req, res) => send(res, await service.listCategories(userId(req))));
   router.post("/", async (req, res) =>
-    send(res, await service.createCategory(userId(req), parse(createCategory, req.body)), null, 201),
+    send(
+      res,
+      await service.createCategory(userId(req), parse(createCategory, req.body)),
+      null,
+      201,
+    ),
   );
   router.post("/reorder", async (req, res) => {
     const { orderedIds } = parse(reorderCategories, req.body);
     send(res, await service.reorderCategories(userId(req), orderedIds));
   });
   router.patch("/:id", async (req, res) =>
-    send(res, await service.updateCategory(userId(req), param(req, "id"), parse(updateCategory, req.body))),
+    send(
+      res,
+      await service.updateCategory(userId(req), param(req, "id"), parse(updateCategory, req.body)),
+    ),
   );
   router.delete("/:id", async (req, res) => {
     await service.archiveCategory(userId(req), param(req, "id"));

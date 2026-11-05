@@ -1,0 +1,34 @@
+name: Production
+on:
+  workflow_dispatch:
+    inputs:
+      migration_reviewed:
+        description: "I reviewed the migrations for expand/backfill/contract safety"
+        type: boolean
+        required: true
+permissions:
+  contents: write
+concurrency: { group: production, cancel-in-progress: false }
+jobs:
+  deploy:
+    if: inputs.migration_reviewed
+    runs-on: ubuntu-latest
+    # Required reviewers on this GitHub environment provide the approval gate.
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version-file: .nvmrc }
+      - run: corepack enable && pnpm install --frozen-lockfile
+      - run: pnpm prisma migrate deploy
+        env: { DATABASE_URL: "${{ secrets.PRODUCTION_DATABASE_URL }}" }
+      - run: curl -fsS -X POST "${{ secrets.RENDER_PRODUCTION_API_HOOK }}" && curl -fsS -X POST "${{ secrets.RENDER_PRODUCTION_WORKER_HOOK }}"
+      - run: curl -fsS -X POST "${{ secrets.VERCEL_PRODUCTION_HOOK }}"
+      - name: Smoke test
+        run: node infra/scripts/smoke.mjs "${{ vars.PRODUCTION_API_URL }}"
+      - name: Release tag
+        run: |
+          tag="release-$(date -u +%Y%m%d-%H%M)"
+          git tag "$tag" && git push origin "$tag"
+          gh release create "$tag" --generate-notes
+        env: { GH_TOKEN: "${{ github.token }}" }

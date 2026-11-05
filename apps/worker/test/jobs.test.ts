@@ -42,7 +42,10 @@ beforeEach(async () => {
   pushes = [];
   authDeletes = [];
   failAuth = false;
-  await prisma.outboxEvent.updateMany({ where: { processedAt: null }, data: { processedAt: new Date() } });
+  await prisma.outboxEvent.updateMany({
+    where: { processedAt: null },
+    data: { processedAt: new Date() },
+  });
 });
 
 async function user(prefs: object = {}, timezone = "UTC") {
@@ -73,7 +76,10 @@ describe("generateOccurrencesJob", () => {
     await generateOccurrencesJob(ctx());
     const first = await prisma.taskOccurrence.count({ where: { taskId: t.id } });
     expect(first).toBeGreaterThanOrEqual(60);
-    await prisma.taskSchedule.updateMany({ where: { taskId: t.id }, data: { generatedUntil: null } });
+    await prisma.taskSchedule.updateMany({
+      where: { taskId: t.id },
+      data: { generatedUntil: null },
+    });
     await generateOccurrencesJob(ctx());
     expect(await prisma.taskOccurrence.count({ where: { taskId: t.id } })).toBe(first);
   });
@@ -87,7 +93,13 @@ describe("scanRemindersJob", () => {
     });
     const t = await task(u, { reminderOffsets: [10] });
     await prisma.taskOccurrence.create({
-      data: { userId: u, taskId: t.id, slotKey: "default", date: asDate(today), scheduledAt: new Date(now.getTime() + 10 * 60_000) },
+      data: {
+        userId: u,
+        taskId: t.id,
+        slotKey: "default",
+        date: asDate(today),
+        scheduledAt: new Date(now.getTime() + 10 * 60_000),
+      },
     });
     return u;
   }
@@ -133,7 +145,9 @@ describe("drainOutboxJob and aggregates", () => {
     await prisma.taskOccurrence.create({
       data: { userId: u, taskId: t.id, slotKey: "a", date: asDate(today), status: "completed" },
     });
-    await prisma.outboxEvent.create({ data: { userId: u, type: "occurrence.changed", payload: { date: today } } });
+    await prisma.outboxEvent.create({
+      data: { userId: u, type: "occurrence.changed", payload: { date: today } },
+    });
     await drainOutboxJob(ctx());
     const row = await prisma.dailyAggregate.findFirstOrThrow({ where: { userId: u } });
     expect(row).toMatchObject({ completed: 1, eligible: 1 });
@@ -146,7 +160,9 @@ describe("drainOutboxJob and aggregates", () => {
       data: { userId: u, taskId: t.id, slotKey: "a", date: asDate(today), status: "completed" },
     });
     for (let i = 0; i < 2; i += 1) {
-      await prisma.outboxEvent.create({ data: { userId: u, type: "occurrence.changed", payload: { date: today } } });
+      await prisma.outboxEvent.create({
+        data: { userId: u, type: "occurrence.changed", payload: { date: today } },
+      });
     }
     await drainOutboxJob(ctx());
     const rows = await prisma.dailyAggregate.findMany({ where: { userId: u } });
@@ -162,14 +178,18 @@ describe("drainOutboxJob and aggregates", () => {
     await prisma.$transaction((tx) => rebuildDailyAggregates(tx, u, today));
     await prisma.dailyAggregate.updateMany({ where: { userId: u }, data: { completed: 99 } });
     expect((await reconcileAggregatesJob(ctx())).drift).toBeGreaterThanOrEqual(1);
-    expect((await prisma.dailyAggregate.findFirstOrThrow({ where: { userId: u } })).completed).toBe(1);
+    expect((await prisma.dailyAggregate.findFirstOrThrow({ where: { userId: u } })).completed).toBe(
+      1,
+    );
   });
 });
 
 describe("account workflows", () => {
   const requestFor = async (u: string, kind: "export" | "deletion") => {
     const r = await prisma.accountRequest.create({ data: { userId: u, kind } });
-    await prisma.outboxEvent.create({ data: { userId: u, type: `account.${kind}`, payload: { requestId: r.id } } });
+    await prisma.outboxEvent.create({
+      data: { userId: u, type: `account.${kind}`, payload: { requestId: r.id } },
+    });
     return r;
   };
 

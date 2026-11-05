@@ -6,10 +6,15 @@ const MAILPIT = "http://127.0.0.1:58025/api/v1";
 
 export async function verificationLink(email: string): Promise<string> {
   for (let i = 0; i < 40; i += 1) {
-    const list = (await (await fetch(`${MAILPIT}/search?query=${encodeURIComponent(`to:"${email}"`)}`)).json()) as { messages: { ID: string }[] };
+    const list = (await (
+      await fetch(`${MAILPIT}/search?query=${encodeURIComponent(`to:"${email}"`)}`)
+    ).json()) as { messages: { ID: string }[] };
     const id = list.messages[0]?.ID;
     if (id) {
-      const message = (await (await fetch(`${MAILPIT}/message/${id}`)).json()) as { HTML: string; Text: string };
+      const message = (await (await fetch(`${MAILPIT}/message/${id}`)).json()) as {
+        HTML: string;
+        Text: string;
+      };
       const match = /https?:\/\/[^"\s]+verify[^"\s]*/.exec(message.HTML || message.Text);
       if (match) return match[0].replaceAll("&amp;", "&");
     }
@@ -35,8 +40,12 @@ export async function signUp(page: Page) {
 }
 
 export async function expectAccessible(page: Page) {
-  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
-  const summary = results.violations.map((v) => `${v.id}: ${v.nodes.length} (${v.nodes[0]?.target.join(" ")})`);
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze();
+  const summary = results.violations.map(
+    (v) => `${v.id}: ${v.nodes.length} (${v.nodes[0]?.target.join(" ")})`,
+  );
   expect(summary).toEqual([]);
 }
 

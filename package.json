@@ -22,7 +22,8 @@
     "db:migrate": "prisma migrate dev",
     "db:validate": "prisma validate",
     "db:seed": "prisma db seed",
-    "check:deps": "node infra/scripts/check-deps.mjs"
+    "check:deps": "node infra/scripts/check-deps.mjs",
+    "check": "pnpm check:deps && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build"
   },
   "devDependencies": {
     "prisma": "7.10.1",
@@ -33,6 +34,8 @@
     "eslint": "^9.39.0",
     "typescript-eslint": "^8.46.0",
     "@lifeos/contracts": "workspace:*",
-    "@lifeos/db": "workspace:*"
+    "@lifeos/db": "workspace:*",
+    "@eslint/js": "^9.39.0",
+    "@lifeos/config": "workspace:*"
   }
 }

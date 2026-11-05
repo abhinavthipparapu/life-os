@@ -17,12 +17,24 @@ export interface AggregateRow {
 }
 
 /** Computes one day's truth from the source tables. */
-export async function computeDailyAggregates(db: Db, userId: string, date: string): Promise<AggregateRow[]> {
+export async function computeDailyAggregates(
+  db: Db,
+  userId: string,
+  date: string,
+): Promise<AggregateRow[]> {
   const [bucket] = await occurrenceBuckets(db, userId, date, date, "day");
   const rows: AggregateRow[] = [];
   if (bucket) {
     const { eligible, completed, skipped, rest, notApplicable } = bucket;
-    rows.push({ metricKey: OCCURRENCE_KEY, value: completed, eligible, completed, skipped, rest, notApplicable });
+    rows.push({
+      metricKey: OCCURRENCE_KEY,
+      value: completed,
+      eligible,
+      completed,
+      skipped,
+      rest,
+      notApplicable,
+    });
   }
   const logs = await db.metricLog.groupBy({
     by: ["metricId"],
@@ -38,7 +50,15 @@ export async function computeDailyAggregates(db: Db, userId: string, date: strin
     for (const log of logs) {
       const metricKey = keys.get(log.metricId);
       if (metricKey) {
-        rows.push({ metricKey, value: log._sum.value ?? 0, eligible: 0, completed: 0, skipped: 0, rest: 0, notApplicable: 0 });
+        rows.push({
+          metricKey,
+          value: log._sum.value ?? 0,
+          eligible: 0,
+          completed: 0,
+          skipped: 0,
+          rest: 0,
+          notApplicable: 0,
+        });
       }
     }
   }
@@ -46,11 +66,17 @@ export async function computeDailyAggregates(db: Db, userId: string, date: strin
 }
 
 /** Replaces one user-day. Safe to repeat, so at-least-once delivery cannot double count. */
-export async function rebuildDailyAggregates(tx: Prisma.TransactionClient, userId: string, date: string) {
+export async function rebuildDailyAggregates(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  date: string,
+) {
   const rows = await computeDailyAggregates(tx, userId, date);
   await tx.dailyAggregate.deleteMany({ where: { userId, localDate: asDate(date) } });
   if (rows.length) {
-    await tx.dailyAggregate.createMany({ data: rows.map((r) => ({ ...r, userId, localDate: asDate(date) })) });
+    await tx.dailyAggregate.createMany({
+      data: rows.map((r) => ({ ...r, userId, localDate: asDate(date) })),
+    });
   }
   return rows.length;
 }

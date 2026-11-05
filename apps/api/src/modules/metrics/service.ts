@@ -27,21 +27,34 @@ function validateUnit(kind: string, value?: number | null, textValue?: string | 
 
 export function metricService(prisma: PrismaClient) {
   const owned = async (userId: string, id: string) => {
-    const metric = await prisma.metricDefinition.findFirst({ where: { id, userId, deletedAt: null } });
+    const metric = await prisma.metricDefinition.findFirst({
+      where: { id, userId, deletedAt: null },
+    });
     if (!metric) throw notFound("Metric");
     return metric;
   };
 
   return {
     list: (userId: string) =>
-      prisma.metricDefinition.findMany({ where: { userId, deletedAt: null }, orderBy: { createdAt: "asc" } }),
+      prisma.metricDefinition.findMany({
+        where: { userId, deletedAt: null },
+        orderBy: { createdAt: "asc" },
+      }),
 
     defineMetric: (userId: string, input: z.output<typeof createMetric>) =>
       prisma.$transaction(async (tx) => {
-        const taken = await tx.metricDefinition.findUnique({ where: { userId_key: { userId, key: input.key } } });
-        if (taken) throw new AppError(409, "duplicate_key", "A metric with this key already exists");
+        const taken = await tx.metricDefinition.findUnique({
+          where: { userId_key: { userId, key: input.key } },
+        });
+        if (taken)
+          throw new AppError(409, "duplicate_key", "A metric with this key already exists");
         const metric = await tx.metricDefinition.create({ data: { ...input, userId } });
-        await audit(tx, { actorId: userId, action: "metric.create", entityType: "metric", entityId: metric.id });
+        await audit(tx, {
+          actorId: userId,
+          action: "metric.create",
+          entityType: "metric",
+          entityId: metric.id,
+        });
         return metric;
       }),
 
@@ -62,9 +75,18 @@ export function metricService(prisma: PrismaClient) {
           },
         });
         await tx.outboxEvent.create({
-          data: { userId, type: "metric.logged", payload: { date: localDate, metricKey: metric.key } },
+          data: {
+            userId,
+            type: "metric.logged",
+            payload: { date: localDate, metricKey: metric.key },
+          },
         });
-        await audit(tx, { actorId: userId, action: "metric.log", entityType: "metric_log", entityId: log.id });
+        await audit(tx, {
+          actorId: userId,
+          action: "metric.log",
+          entityType: "metric_log",
+          entityId: log.id,
+        });
         return log;
       });
     },
@@ -80,7 +102,13 @@ export function metricService(prisma: PrismaClient) {
       return paginate(rows, q.limit);
     },
 
-    async getSeries(userId: string, id: string, from: string, to: string, grain: "day" | "week" | "month") {
+    async getSeries(
+      userId: string,
+      id: string,
+      from: string,
+      to: string,
+      grain: "day" | "week" | "month",
+    ) {
       const metric = await owned(userId, id);
       const measure = metric.aggregation === "last" ? "max" : metric.aggregation;
       return metricBuckets(prisma, userId, id, from, to, grain, measure);

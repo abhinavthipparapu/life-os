@@ -1,14 +1,21 @@
 import type { SyncOperation } from "@lifeos/contracts";
 import { getDb, type CachedOccurrence } from "./db";
 
-const STATUS: Record<SyncOperation["action"], string> = { complete: "completed", skip: "skipped", reopen: "pending" };
+const STATUS: Record<SyncOperation["action"], string> = {
+  complete: "completed",
+  skip: "skipped",
+  reopen: "pending",
+};
 
 export async function cacheOccurrences(rows: CachedOccurrence[]) {
   const db = await getDb();
   const pending = await pendingIds();
   const tx = db.transaction("occurrences", "readwrite");
   // A row with an unsynced local change keeps its optimistic state until the server has answered.
-  await Promise.all([...rows.filter((r) => !pending.has(r.id)).map((r) => tx.store.put(normalize(r))), tx.done]);
+  await Promise.all([
+    ...rows.filter((r) => !pending.has(r.id)).map((r) => tx.store.put(normalize(r))),
+    tx.done,
+  ]);
 }
 
 function normalize(row: CachedOccurrence): CachedOccurrence {
@@ -16,7 +23,12 @@ function normalize(row: CachedOccurrence): CachedOccurrence {
 }
 
 /** Mirrors a fresh server range, dropping rows the server no longer has unless they are unsynced. */
-export async function replaceRange(from: string, to: string, rows: CachedOccurrence[], plannerId?: string) {
+export async function replaceRange(
+  from: string,
+  to: string,
+  rows: CachedOccurrence[],
+  plannerId?: string,
+) {
   const db = await getDb();
   const pending = await pendingIds();
   const keep = new Set(rows.map((r) => r.id));
@@ -24,7 +36,10 @@ export async function replaceRange(from: string, to: string, rows: CachedOccurre
   const tx = db.transaction("occurrences", "readwrite");
   await Promise.all([
     ...existing
-      .filter((r) => !keep.has(r.id) && !pending.has(r.id) && (!plannerId || r.task.plannerId === plannerId))
+      .filter(
+        (r) =>
+          !keep.has(r.id) && !pending.has(r.id) && (!plannerId || r.task.plannerId === plannerId),
+      )
       .map((r) => tx.store.delete(r.id)),
     ...rows.filter((r) => !pending.has(r.id)).map((r) => tx.store.put(normalize(r))),
     tx.done,
@@ -96,12 +111,18 @@ export async function retryWithVersion(id: string, version: number) {
   if (!op) return;
   const tx = db.transaction("queue", "readwrite");
   await tx.store.delete(id);
-  await tx.store.put({ ...op, conflict: false, clientOperationId: crypto.randomUUID(), expectedVersion: version });
+  await tx.store.put({
+    ...op,
+    conflict: false,
+    clientOperationId: crypto.randomUUID(),
+    expectedVersion: version,
+  });
   await tx.done;
 }
 
 export async function saveServerOccurrence(row: Partial<CachedOccurrence> & { id: string }) {
   const db = await getDb();
   const cached = await db.get("occurrences", row.id);
-  if (cached) await db.put("occurrences", { ...cached, ...row, date: cached.date, task: cached.task });
+  if (cached)
+    await db.put("occurrences", { ...cached, ...row, date: cached.date, task: cached.task });
 }

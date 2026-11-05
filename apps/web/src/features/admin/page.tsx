@@ -15,10 +15,22 @@ function Audit() {
     <div className="card-surface overflow-auto p-3">
       <table className="w-full text-sm">
         <caption className="sr-only">Audit events</caption>
-        <thead><tr className="border-b text-left text-ink-muted"><th scope="col">When</th><th scope="col">Action</th><th scope="col">Entity</th></tr></thead>
+        <thead>
+          <tr className="border-b text-left text-ink-muted">
+            <th scope="col">When</th>
+            <th scope="col">Action</th>
+            <th scope="col">Entity</th>
+          </tr>
+        </thead>
         <tbody>
           {data?.map((e) => (
-            <tr key={e.id} className="border-b"><td className="py-1 pr-3 whitespace-nowrap">{new Date(e.createdAt).toLocaleString()}</td><td className="pr-3">{e.action}</td><td>{e.entityType}</td></tr>
+            <tr key={e.id} className="border-b">
+              <td className="py-1 pr-3 whitespace-nowrap">
+                {new Date(e.createdAt).toLocaleString()}
+              </td>
+              <td className="pr-3">{e.action}</td>
+              <td>{e.entityType}</td>
+            </tr>
           ))}
         </tbody>
       </table>
@@ -43,16 +55,33 @@ function Users() {
   };
   return (
     <div className="card-surface space-y-3 p-4">
-      <form onSubmit={(e) => { e.preventDefault(); setSearch(email.trim()); }} className="flex gap-2">
-        <Input aria-label="Exact email address" placeholder="Exact email address" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setSearch(email.trim());
+        }}
+        className="flex gap-2"
+      >
+        <Input
+          aria-label="Exact email address"
+          placeholder="Exact email address"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
         <Button type="submit">Look up</Button>
       </form>
       {error && <ErrorState error={error} />}
       <ul className="space-y-2">
         {data?.map((u) => (
           <li key={u.authUserId} className="flex items-center justify-between gap-2 text-sm">
-            <span>{u.email} ({u.role}){u.accessRevokedAt ? ", revoked" : ""}</span>
-            {!u.accessRevokedAt && <Button variant="outline" size="sm" onClick={() => void act(u.authUserId, u.email)}>Revoke access</Button>}
+            <span>
+              {u.email} ({u.role}){u.accessRevokedAt ? ", revoked" : ""}
+            </span>
+            {!u.accessRevokedAt && (
+              <Button variant="outline" size="sm" onClick={() => void act(u.authUserId, u.email)}>
+                Revoke access
+              </Button>
+            )}
           </li>
         ))}
         {data?.length === 0 && <li className="text-sm text-ink-muted">No user found.</li>}
@@ -67,9 +96,12 @@ function Jobs() {
   if (error) return <ErrorState error={error} />;
   return (
     <dl className="card-surface grid grid-cols-2 gap-2 p-4 text-sm">
-      <dt className="text-ink-muted">Pending outbox events</dt><dd>{data?.pendingOutbox}</dd>
-      <dt className="text-ink-muted">Oldest pending</dt><dd>{data?.oldestPendingSeconds}s</dd>
-      <dt className="text-ink-muted">Failures, last 24 hours</dt><dd>{data?.failuresLast24h}</dd>
+      <dt className="text-ink-muted">Pending outbox events</dt>
+      <dd>{data?.pendingOutbox}</dd>
+      <dt className="text-ink-muted">Oldest pending</dt>
+      <dd>{data?.oldestPendingSeconds}s</dd>
+      <dt className="text-ink-muted">Failures, last 24 hours</dt>
+      <dd>{data?.failuresLast24h}</dd>
     </dl>
   );
 }
@@ -77,16 +109,46 @@ function Jobs() {
 export function AdminPage() {
   const { error } = api.useAdminJobsQuery();
   const denied = (error as { status?: number } | undefined)?.status;
-  if (denied === 404) return <main className="p-8 text-center"><h1 className="text-xl font-semibold">Page not found</h1><Link className="text-primary underline" to="/app">Go home</Link></main>;
+  if (denied === 404)
+    return (
+      <main className="p-8 text-center">
+        <h1 className="text-xl font-semibold">Page not found</h1>
+        <Link className="text-primary underline" to="/app">
+          Go home
+        </Link>
+      </main>
+    );
   return (
     <main className="mx-auto max-w-4xl p-4">
-      <PageHeader title="Admin" description="Every action here is audited." actions={<Button variant="outline" asChild><Link to="/app">Back to app</Link></Button>} />
-      {denied === 403 && <p role="alert" className="mb-4 rounded-lg bg-danger-soft p-3 text-sm text-danger">Multi-factor authentication is required for admin access.</p>}
+      <PageHeader
+        title="Admin"
+        description="Every action here is audited."
+        actions={
+          <Button variant="outline" asChild>
+            <Link to="/app">Back to app</Link>
+          </Button>
+        }
+      />
+      {denied === 403 && (
+        <p role="alert" className="mb-4 rounded-lg bg-danger-soft p-3 text-sm text-danger">
+          Multi-factor authentication is required for admin access.
+        </p>
+      )}
       <Tabs defaultValue="audit">
-        <TabsList className="mb-4"><TabsTrigger value="audit">Audit</TabsTrigger><TabsTrigger value="users">Users</TabsTrigger><TabsTrigger value="jobs">Jobs</TabsTrigger></TabsList>
-        <TabsContent value="audit"><Audit /></TabsContent>
-        <TabsContent value="users"><Users /></TabsContent>
-        <TabsContent value="jobs"><Jobs /></TabsContent>
+        <TabsList className="mb-4">
+          <TabsTrigger value="audit">Audit</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="jobs">Jobs</TabsTrigger>
+        </TabsList>
+        <TabsContent value="audit">
+          <Audit />
+        </TabsContent>
+        <TabsContent value="users">
+          <Users />
+        </TabsContent>
+        <TabsContent value="jobs">
+          <Jobs />
+        </TabsContent>
       </Tabs>
     </main>
   );

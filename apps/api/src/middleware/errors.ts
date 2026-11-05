@@ -1,5 +1,6 @@
 import type { ApiEnvelope, ProblemDetails } from "@lifeos/contracts";
 import type { ErrorRequestHandler, RequestHandler } from "express";
+import { reportError } from "../shared/monitoring.js";
 import { AppError } from "../shared/http.js";
 
 function respond(res: Parameters<RequestHandler>[1], problem: ProblemDetails) {
@@ -30,10 +31,16 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   }
   const status = statusOf(err);
   if (status) {
-    respond(res, { type: "about:blank", title: "Invalid request", status, code: "invalid_request" });
+    respond(res, {
+      type: "about:blank",
+      title: "Invalid request",
+      status,
+      code: "invalid_request",
+    });
     return;
   }
   req.log?.error({ err }, "unhandled error");
+  reportError(err);
   respond(res, {
     type: "about:blank",
     title: "Internal server error",

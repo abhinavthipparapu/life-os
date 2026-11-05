@@ -1,10 +1,18 @@
 export const MAINTENANCE_QUEUE = "maintenance";
 export const DEAD_LETTER_QUEUE = "dead-letter";
 
-export type JobName = "drain-outbox" | "generate-occurrences" | "scan-reminders" | "reconcile-aggregates" | "weekly-reports";
+export type JobName =
+  | "drain-outbox"
+  | "generate-occurrences"
+  | "scan-reminders"
+  | "reconcile-aggregates"
+  | "weekly-reports";
 
 // Scheduler ids are fixed, so restarting or scaling workers never duplicates a schedule.
-export const SCHEDULES: { name: JobName; repeat: { every: number } | { pattern: string; tz?: string } }[] = [
+export const SCHEDULES: {
+  name: JobName;
+  repeat: { every: number } | { pattern: string; tz?: string };
+}[] = [
   { name: "drain-outbox", repeat: { every: 10_000 } },
   { name: "scan-reminders", repeat: { every: 60_000 } },
   { name: "generate-occurrences", repeat: { pattern: "0 * * * *" } },

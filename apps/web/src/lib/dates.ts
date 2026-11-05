@@ -14,12 +14,21 @@ export function addDays(date: string, days: number): string {
 }
 
 /** Formats a stored calendar date. UTC prevents it from shifting by a day in the viewer's zone. */
-export function formatDate(date: string, options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" }) {
-  return new Intl.DateTimeFormat(undefined, { ...options, timeZone: "UTC" }).format(new Date(`${date.slice(0, 10)}T00:00:00Z`));
+export function formatDate(
+  date: string,
+  options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" },
+) {
+  return new Intl.DateTimeFormat(undefined, { ...options, timeZone: "UTC" }).format(
+    new Date(`${date.slice(0, 10)}T00:00:00Z`),
+  );
 }
 
 export function formatTime(instant: string, timezone: string) {
-  return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", timeZone: timezone }).format(new Date(instant));
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: timezone,
+  }).format(new Date(instant));
 }
 
 export function browserTimezone() {

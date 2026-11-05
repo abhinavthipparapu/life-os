@@ -37,29 +37,53 @@ export function syncService(prisma: PrismaClient) {
       occurredAt: new Date(op.occurredAt),
     }) as const;
 
-  async function applyIdempotentOperation(userId: string, op: SyncOperation): Promise<OperationResult> {
+  async function applyIdempotentOperation(
+    userId: string,
+    op: SyncOperation,
+  ): Promise<OperationResult> {
     const key = { userId_clientOperationId: { userId, clientOperationId: op.clientOperationId } };
     const prior = await prisma.syncOperation.findUnique({ where: key });
-    if (prior) return { ...(prior.responseJson as object), clientOperationId: op.clientOperationId, outcome: "duplicate" };
+    if (prior)
+      return {
+        ...(prior.responseJson as object),
+        clientOperationId: op.clientOperationId,
+        outcome: "duplicate",
+      };
 
     const reject = async (message: string): Promise<OperationResult> => {
-      const result: OperationResult = { clientOperationId: op.clientOperationId, outcome: "rejected", message };
+      const result: OperationResult = {
+        clientOperationId: op.clientOperationId,
+        outcome: "rejected",
+        message,
+      };
       await prisma.syncOperation.create({ data: log(userId, op, result) });
       return result;
     };
     const payload = payloadSchema.safeParse(op.payload);
     if (!payload.success) return reject("Invalid payload");
-    if (Date.parse(op.occurredAt) > Date.now() + MAX_CLOCK_SKEW_MS) return reject("occurredAt is in the future");
+    if (Date.parse(op.occurredAt) > Date.now() + MAX_CLOCK_SKEW_MS)
+      return reject("occurredAt is in the future");
 
     try {
       return await prisma.$transaction(async (tx) => {
-        const { occurrence, celebration } = await applyOccurrenceAction(tx, userId, op.entityId, op.action, {
-          ...payload.data,
-          reason: op.action === "skip" ? (payload.data.reason ?? "Skipped offline") : undefined,
-          expectedVersion: op.expectedVersion,
-          occurredAt: op.occurredAt,
-        });
-        const result: OperationResult = { clientOperationId: op.clientOperationId, outcome: "accepted", occurrence, celebration };
+        const { occurrence, celebration } = await applyOccurrenceAction(
+          tx,
+          userId,
+          op.entityId,
+          op.action,
+          {
+            ...payload.data,
+            reason: op.action === "skip" ? (payload.data.reason ?? "Skipped offline") : undefined,
+            expectedVersion: op.expectedVersion,
+            occurredAt: op.occurredAt,
+          },
+        );
+        const result: OperationResult = {
+          clientOperationId: op.clientOperationId,
+          outcome: "accepted",
+          occurrence,
+          celebration,
+        };
         await tx.syncOperation.create({ data: log(userId, op, result) });
         return result;
       });
@@ -92,7 +116,8 @@ export function syncService(prisma: PrismaClient) {
     async getChanges(userId: string, q: z.output<typeof syncChangesQuery>) {
       const startedAt = new Date();
       const since = q.cursor ? new Date(q.cursor) : new Date(0);
-      if (Number.isNaN(since.getTime())) throw new AppError(422, "invalid_cursor", "Invalid cursor");
+      if (Number.isNaN(since.getTime()))
+        throw new AppError(422, "invalid_cursor", "Invalid cursor");
       const where = { userId, updatedAt: { gte: since } };
       const page = { orderBy: { updatedAt: "asc" as const }, take: CHANGE_PAGE };
       const [occurrences, tasks, planners, categories] = await Promise.all([
@@ -101,7 +126,9 @@ export function syncService(prisma: PrismaClient) {
         prisma.planner.findMany({ where, ...page }),
         prisma.category.findMany({ where, ...page }),
       ]);
-      const full = [occurrences, tasks, planners, categories].filter((rows) => rows.length === CHANGE_PAGE);
+      const full = [occurrences, tasks, planners, categories].filter(
+        (rows) => rows.length === CHANGE_PAGE,
+      );
       const truncatedAt = full.map((rows) => rows[rows.length - 1]!.updatedAt.getTime());
       // The overlap catches rows from transactions still committing when this read began.
       const next = truncatedAt.length ? Math.min(...truncatedAt) : startedAt.getTime() - OVERLAP_MS;

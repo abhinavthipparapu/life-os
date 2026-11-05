@@ -2,7 +2,17 @@ import { Check } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
-export function AuthLayout({ title, subtitle, children, footer }: { title: string; subtitle?: string; children: ReactNode; footer?: ReactNode }) {
+export function AuthLayout({
+  title,
+  subtitle,
+  children,
+  footer,
+}: {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+  footer?: ReactNode;
+}) {
   return (
     <main className="grid min-h-dvh place-items-center p-4">
       <div className="w-full max-w-md">

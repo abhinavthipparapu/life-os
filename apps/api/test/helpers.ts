@@ -14,7 +14,9 @@ config({ path: resolve(import.meta.dirname, "../../../.env"), quiet: true });
 export const ISSUER = "https://issuer.test/auth/v1";
 export const AUDIENCE = "authenticated";
 
-export async function createHarness(overrides: { ai?: AiProvider; env?: Record<string, string> } = {}) {
+export async function createHarness(
+  overrides: { ai?: AiProvider; env?: Record<string, string> } = {},
+) {
   const databaseUrl = process.env.TEST_DATABASE_URL!;
   const env = loadEnv({
     ...process.env,
@@ -33,7 +35,11 @@ export async function createHarness(overrides: { ai?: AiProvider; env?: Record<s
     audience: AUDIENCE,
   });
 
-  const sign = (claims: Record<string, unknown>, sub: string, over: { iss?: string; aud?: string; exp?: string; iat?: number } = {}) =>
+  const sign = (
+    claims: Record<string, unknown>,
+    sub: string,
+    over: { iss?: string; aud?: string; exp?: string; iat?: number } = {},
+  ) =>
     new SignJWT({ role: "authenticated", ...claims })
       .setProtectedHeader({ alg: "ES256", kid: "test" })
       .setSubject(sub)

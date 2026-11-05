@@ -16,7 +16,13 @@ export interface AdherencePolicy {
 
 /** Tallies states. Rest and not-applicable days never enter the denominator (section 6.1). */
 export function tally(states: OccurrenceState[], policy: AdherencePolicy = {}): OccurrenceCounts {
-  const counts: OccurrenceCounts = { eligible: 0, completed: 0, skipped: 0, rest: 0, notApplicable: 0 };
+  const counts: OccurrenceCounts = {
+    eligible: 0,
+    completed: 0,
+    skipped: 0,
+    rest: 0,
+    notApplicable: 0,
+  };
   for (const state of states) {
     if (state === "completed") {
       counts.completed += 1;

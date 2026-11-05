@@ -17,7 +17,12 @@ export function identityRoutes({ prisma, rateLimitStore }: Deps) {
       await tx.outboxEvent.create({
         data: { userId: id, type: `account.${kind}`, payload: { requestId: request.id } },
       });
-      await audit(tx, { actorId: id, action: `account.${kind}.request`, entityType: "account_request", entityId: request.id });
+      await audit(tx, {
+        actorId: id,
+        action: `account.${kind}.request`,
+        entityType: "account_request",
+        entityId: request.id,
+      });
       return request;
     });
 
@@ -50,7 +55,12 @@ export function identityRoutes({ prisma, rateLimitStore }: Deps) {
     const data = parse(updateProfile, req.body);
     await prisma.$transaction(async (tx) => {
       await tx.profile.update({ where: { authUserId: id }, data });
-      await audit(tx, { actorId: id, action: "profile.update", entityType: "profile", entityId: id });
+      await audit(tx, {
+        actorId: id,
+        action: "profile.update",
+        entityType: "profile",
+        entityId: id,
+      });
     });
     send(res, await getProfile(id));
   });

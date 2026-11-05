@@ -6,7 +6,10 @@ const { toColumns } = await import("./widgets");
 
 describe("toColumns", () => {
   it("fills 26 full weeks and ends on the latest day", () => {
-    const columns = toColumns([{ bucket: "2026-11-04", value: 2 }, { bucket: "2026-11-05", value: 3 }]);
+    const columns = toColumns([
+      { bucket: "2026-11-04", value: 2 },
+      { bucket: "2026-11-05", value: 3 },
+    ]);
     expect(columns).toHaveLength(26);
     const last = columns[25]!.bins;
     expect(last[last.length - 1]!.count).toBe(3);

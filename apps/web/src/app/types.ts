@@ -119,7 +119,13 @@ export interface Occurrence {
 export interface HomeSummary {
   today: string;
   timezone: string;
-  counts: { eligible: number; completed: number; skipped: number; rest: number; notApplicable: number };
+  counts: {
+    eligible: number;
+    completed: number;
+    skipped: number;
+    rest: number;
+    notApplicable: number;
+  };
   score: number | null;
   streak: { current: number; longest: number };
   planners: Pick<Planner, "id" | "name" | "color" | "icon" | "completedAt">[];

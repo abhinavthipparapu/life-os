@@ -17,4 +17,5 @@ export async function audit(db: AuditClient, input: AuditInput) {
 }
 
 /** Plain data for a JSON column. Round-tripping also drops undefined values. */
-export const toJson = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+export const toJson = (value: unknown) =>
+  JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;

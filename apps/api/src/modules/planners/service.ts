@@ -1,4 +1,10 @@
-import type { createFieldDefinition, createPlanner, createSection, listQuery, updatePlanner } from "@lifeos/contracts";
+import type {
+  createFieldDefinition,
+  createPlanner,
+  createSection,
+  listQuery,
+  updatePlanner,
+} from "@lifeos/contracts";
 import type { Prisma, PrismaClient } from "@lifeos/db";
 import type { z } from "zod";
 import { audit } from "../../shared/audit.js";
@@ -33,7 +39,10 @@ export function plannerService(prisma: PrismaClient) {
         orderBy: [{ [q.sort]: q.order }, { id: "asc" }],
         take: q.limit + 1,
         ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
-        include: { category: { select: { id: true, name: true, color: true } }, _count: { select: { tasks: { where: { deletedAt: null } } } } },
+        include: {
+          category: { select: { id: true, name: true, color: true } },
+          _count: { select: { tasks: { where: { deletedAt: null } } } },
+        },
       });
       return paginate(rows, q.limit);
     },
@@ -67,7 +76,12 @@ export function plannerService(prisma: PrismaClient) {
             slug: uniqueSlug(input.name, await plannerSlugs(tx, userId)),
           },
         });
-        await audit(tx, { actorId: userId, action: "planner.create", entityType: "planner", entityId: planner.id });
+        await audit(tx, {
+          actorId: userId,
+          action: "planner.create",
+          entityType: "planner",
+          entityId: planner.id,
+        });
         return planner;
       }),
 
@@ -81,7 +95,12 @@ export function plannerService(prisma: PrismaClient) {
           data: { ...data, version: { increment: 1 } },
         });
         if (count === 0) throw conflict("This planner was changed elsewhere", current);
-        await audit(tx, { actorId: userId, action: "planner.update", entityType: "planner", entityId: id });
+        await audit(tx, {
+          actorId: userId,
+          action: "planner.update",
+          entityType: "planner",
+          entityId: id,
+        });
         return tx.planner.findUniqueOrThrow({ where: { id } });
       }),
 
@@ -89,7 +108,12 @@ export function plannerService(prisma: PrismaClient) {
       prisma.$transaction(async (tx) => {
         await ownedPlanner(tx, userId, id);
         await tx.planner.update({ where: { id }, data: { deletedAt: new Date() } });
-        await audit(tx, { actorId: userId, action: "planner.archive", entityType: "planner", entityId: id });
+        await audit(tx, {
+          actorId: userId,
+          action: "planner.archive",
+          entityType: "planner",
+          entityId: id,
+        });
       }),
 
     clonePlanner: (userId: string, id: string) =>
@@ -118,21 +142,47 @@ export function plannerService(prisma: PrismaClient) {
     createSection: (userId: string, plannerId: string, input: z.output<typeof createSection>) =>
       prisma.$transaction(async (tx) => {
         await ownedPlanner(tx, userId, plannerId);
-        const position = input.position ?? (await tx.plannerSection.count({ where: { plannerId, deletedAt: null } }));
-        const section = await tx.plannerSection.create({ data: { plannerId, name: input.name, position } });
-        await audit(tx, { actorId: userId, action: "section.create", entityType: "section", entityId: section.id });
+        const position =
+          input.position ??
+          (await tx.plannerSection.count({ where: { plannerId, deletedAt: null } }));
+        const section = await tx.plannerSection.create({
+          data: { plannerId, name: input.name, position },
+        });
+        await audit(tx, {
+          actorId: userId,
+          action: "section.create",
+          entityType: "section",
+          entityId: section.id,
+        });
         return section;
       }),
 
-    createField: (userId: string, plannerId: string, input: z.output<typeof createFieldDefinition>) =>
+    createField: (
+      userId: string,
+      plannerId: string,
+      input: z.output<typeof createFieldDefinition>,
+    ) =>
       prisma.$transaction(async (tx) => {
         await ownedPlanner(tx, userId, plannerId);
-        const taken = await tx.fieldDefinition.findUnique({ where: { plannerId_key: { plannerId, key: input.key } } });
+        const taken = await tx.fieldDefinition.findUnique({
+          where: { plannerId_key: { plannerId, key: input.key } },
+        });
         if (taken) throw new AppError(409, "duplicate_key", "A field with this key already exists");
         const field = await tx.fieldDefinition.create({
-          data: { plannerId, key: input.key, label: input.label, type: input.type, validationJson: input.validation },
+          data: {
+            plannerId,
+            key: input.key,
+            label: input.label,
+            type: input.type,
+            validationJson: input.validation,
+          },
         });
-        await audit(tx, { actorId: userId, action: "field.create", entityType: "field", entityId: field.id });
+        await audit(tx, {
+          actorId: userId,
+          action: "field.create",
+          entityType: "field",
+          entityId: field.id,
+        });
         return field;
       }),
   };

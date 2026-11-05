@@ -4,7 +4,15 @@ import { CloudOff, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { messageOf } from "@/app/api";
 
-export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
+export function PageHeader({
+  title,
+  description,
+  actions,
+}: {
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+}) {
   return (
     <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>
@@ -26,7 +34,17 @@ export function PageSkeleton({ rows = 4 }: { rows?: number }) {
   );
 }
 
-export function EmptyState({ icon: Icon, title, description, action }: { icon: LucideIcon; title: string; description: string; action?: ReactNode }) {
+export function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  action,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
   return (
     <div className="card-surface flex flex-col items-center px-6 py-12 text-center">
       <div className="mb-4 grid size-14 place-items-center rounded-full bg-primary-soft">
@@ -44,8 +62,12 @@ export function ErrorState({ error, retry }: { error: unknown; retry?: () => voi
   return (
     <div role="alert" className="card-surface flex flex-col items-center px-6 py-10 text-center">
       {offline && <CloudOff aria-hidden className="mb-3 size-6 text-ink-muted" />}
-      <h2 className="text-lg font-semibold">{offline ? "This page needs a connection" : "Something went wrong"}</h2>
-      <p className="mt-1 text-sm text-ink-muted">{offline ? "Today's tasks still work offline." : messageOf(error)}</p>
+      <h2 className="text-lg font-semibold">
+        {offline ? "This page needs a connection" : "Something went wrong"}
+      </h2>
+      <p className="mt-1 text-sm text-ink-muted">
+        {offline ? "Today's tasks still work offline." : messageOf(error)}
+      </p>
       {retry && (
         <Button variant="outline" className="mt-4" onClick={retry}>
           Try again

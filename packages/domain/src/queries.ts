@@ -48,7 +48,14 @@ export async function occurrenceBuckets(
   pendingBefore?: string,
 ): Promise<OccurrenceBucket[]> {
   const rows = await db.$queryRaw<
-    { bucket: string; completed: bigint; pending: bigint; skipped: bigint; rest: bigint; na: bigint }[]
+    {
+      bucket: string;
+      completed: bigint;
+      pending: bigint;
+      skipped: bigint;
+      rest: bigint;
+      na: bigint;
+    }[]
   >(Prisma.sql`
     SELECT to_char(date_trunc(${GRAIN_SQL[grain]}, o.date), 'YYYY-MM-DD') AS bucket,
       COUNT(*) FILTER (WHERE o.status = 'completed') AS completed,
@@ -74,7 +81,12 @@ export async function occurrenceBuckets(
   }));
 }
 
-export async function dailyCounts(db: Db, userId: string, from: string, to: string): Promise<DayResult[]> {
+export async function dailyCounts(
+  db: Db,
+  userId: string,
+  from: string,
+  to: string,
+): Promise<DayResult[]> {
   const rows = await occurrenceBuckets(db, userId, from, to, "day");
   return rows.map((r) => ({ date: r.bucket, eligible: r.eligible, completed: r.completed }));
 }

@@ -16,12 +16,22 @@ export interface SourceMetric {
 }
 
 /** All statistics are computed here on the server. The model only receives and explains them. */
-export async function buildInsightContext(db: Db, userId: string, timezone: string, days: number, includeSensitive: boolean) {
+export async function buildInsightContext(
+  db: Db,
+  userId: string,
+  timezone: string,
+  days: number,
+  includeSensitive: boolean,
+) {
   const to = localDateOf(new Date(), timezone);
   const from = addDays(to, -(days - 1));
   const buckets = await occurrenceBuckets(db, userId, from, to, "day");
   const totals = buckets.reduce(
-    (a, b) => ({ eligible: a.eligible + b.eligible, completed: a.completed + b.completed, skipped: a.skipped + b.skipped }),
+    (a, b) => ({
+      eligible: a.eligible + b.eligible,
+      completed: a.completed + b.completed,
+      skipped: a.skipped + b.skipped,
+    }),
     { eligible: 0, completed: 0, skipped: 0 },
   );
   const rate = adherence(totals);
@@ -32,7 +42,12 @@ export async function buildInsightContext(db: Db, userId: string, timezone: stri
     { label: "Adherence", value: rate === null ? null : Math.round(rate * 1000) / 10, unit: "%" },
   ];
   const metrics = await db.metricDefinition.findMany({
-    where: { userId, deletedAt: null, kind: { not: "text" }, ...(includeSensitive ? {} : { isSensitive: false }) },
+    where: {
+      userId,
+      deletedAt: null,
+      kind: { not: "text" },
+      ...(includeSensitive ? {} : { isSensitive: false }),
+    },
     take: 20,
   });
   for (const metric of metrics) {
@@ -46,7 +61,11 @@ export async function buildInsightContext(db: Db, userId: string, timezone: stri
       _count: true,
     });
     if (result._count > 0) {
-      sources.push({ label: `${metric.label} (average)`, value: result._avg.value, unit: metric.unit });
+      sources.push({
+        label: `${metric.label} (average)`,
+        value: result._avg.value,
+        unit: metric.unit,
+      });
     }
   }
   const prompt = [
@@ -56,8 +75,15 @@ export async function buildInsightContext(db: Db, userId: string, timezone: stri
   return { prompt, sources, from, to };
 }
 
-export async function monthlyTokensUsed(db: Db, userId: string, now: Date = new Date()): Promise<number> {
+export async function monthlyTokensUsed(
+  db: Db,
+  userId: string,
+  now: Date = new Date(),
+): Promise<number> {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const { _sum } = await db.aiUsage.aggregate({ where: { userId, createdAt: { gte: start } }, _sum: { tokens: true } });
+  const { _sum } = await db.aiUsage.aggregate({
+    where: { userId, createdAt: { gte: start } },
+    _sum: { tokens: true },
+  });
   return _sum.tokens ?? 0;
 }

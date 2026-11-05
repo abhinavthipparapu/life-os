@@ -12,7 +12,10 @@ export function syncRoutes({ prisma }: Deps) {
     send(res, await service.applyBatch(userId(req), operations));
   });
   router.get("/changes", async (req, res) => {
-    const { changes, nextCursor, hasMore } = await service.getChanges(userId(req), parse(syncChangesQuery, req.query));
+    const { changes, nextCursor, hasMore } = await service.getChanges(
+      userId(req),
+      parse(syncChangesQuery, req.query),
+    );
     send(res, changes, { nextCursor, hasMore });
   });
   return router;

@@ -10,15 +10,25 @@ afterAll(() => h.prisma.$disconnect());
 
 type U = Awaited<ReturnType<typeof h.user>>;
 const today = localDateOf(new Date(), "UTC");
-const shift = (n: number) => new Date(Date.parse(today) + n * 86_400_000).toISOString().slice(0, 10);
+const shift = (n: number) =>
+  new Date(Date.parse(today) + n * 86_400_000).toISOString().slice(0, 10);
 
 async function dailyTask(u: U, title = "Daily", rrule = "FREQ=DAILY;COUNT=1") {
   const p = (await u.post("/api/v1/planners", { name: `P ${title}`, timezone: "UTC" })).body.data;
-  const t = (await u.post(`/api/v1/planners/${p.id}/tasks`, { title, schedule: { rrule, startsOn: today } })).body.data;
-  const occurrences = (await u.get(`/api/v1/occurrences?from=${today}&to=${today}&plannerId=${p.id}`)).body.data;
+  const t = (
+    await u.post(`/api/v1/planners/${p.id}/tasks`, { title, schedule: { rrule, startsOn: today } })
+  ).body.data;
+  const occurrences = (
+    await u.get(`/api/v1/occurrences?from=${today}&to=${today}&plannerId=${p.id}`)
+  ).body.data;
   return { planner: p, task: t, occurrence: occurrences[0] };
 }
-const backdated = (taskId: string, userId: string, offset: number, status: "completed" | "pending" | "rest" | "skipped") =>
+const backdated = (
+  taskId: string,
+  userId: string,
+  offset: number,
+  status: "completed" | "pending" | "rest" | "skipped",
+) =>
   h.prisma.taskOccurrence.create({
     data: { userId, taskId, slotKey: "past", date: new Date(`${shift(offset)}T00:00:00Z`), status },
   });
@@ -42,10 +52,15 @@ describe("occurrence lifecycle", () => {
     await u.post(`/api/v1/occurrences/${o.id}/complete`, { value: 3, note: "ok" });
     await u.post(`/api/v1/occurrences/${o.id}/reopen`);
     await u.post(`/api/v1/occurrences/${o.id}/skip`, { reason: "Travelling" });
-    const events = await h.prisma.taskEvent.findMany({ where: { occurrenceId: o.id }, orderBy: { createdAt: "asc" } });
+    const events = await h.prisma.taskEvent.findMany({
+      where: { occurrenceId: o.id },
+      orderBy: { createdAt: "asc" },
+    });
     expect(events.map((e) => e.action)).toEqual(["complete", "reopen", "skip"]);
     expect(events[2]!.reason).toBe("Travelling");
-    expect(await h.prisma.outboxEvent.count({ where: { userId: u.id, type: "occurrence.changed" } })).toBe(3);
+    expect(
+      await h.prisma.outboxEvent.count({ where: { userId: u.id, type: "occurrence.changed" } }),
+    ).toBe(3);
   });
   it("requires a reason to skip", async () => {
     const u = await h.user();
@@ -63,7 +78,10 @@ describe("occurrence lifecycle", () => {
   it("defers by closing the original and creating a new occurrence", async () => {
     const u = await h.user();
     const { occurrence: o, task: t } = await dailyTask(u);
-    const res = await u.post(`/api/v1/occurrences/${o.id}/defer`, { toDate: shift(2), reason: "Busy" });
+    const res = await u.post(`/api/v1/occurrences/${o.id}/defer`, {
+      toDate: shift(2),
+      reason: "Busy",
+    });
     expect(res.status).toBe(201);
     const original = await h.prisma.taskOccurrence.findUniqueOrThrow({ where: { id: o.id } });
     expect(original.status).toBe("not_applicable");
@@ -79,7 +97,10 @@ describe("occurrence lifecycle", () => {
     const c = first.body.meta.celebration;
     expect(c.dayComplete).toBe(true);
     expect(c.plannerCompleted.id).toBe(p.id);
-    expect(c.achievements.map((a: { key: string }) => a.key).sort()).toEqual(["first_completion", "perfect_day"]);
+    expect(c.achievements.map((a: { key: string }) => a.key).sort()).toEqual([
+      "first_completion",
+      "perfect_day",
+    ]);
     await u.post(`/api/v1/occurrences/${o.id}/reopen`);
     const again = await u.post(`/api/v1/occurrences/${o.id}/complete`);
     expect(again.body.meta.celebration.plannerCompleted).toBeNull();
@@ -108,31 +129,44 @@ describe("metrics and goals", () => {
   it("rejects duplicate metric keys", async () => {
     const u = await h.user();
     await metric(u);
-    expect((await u.post("/api/v1/metrics", { key: "water", label: "W", kind: "quantity" })).status).toBe(409);
+    expect(
+      (await u.post("/api/v1/metrics", { key: "water", label: "W", kind: "quantity" })).status,
+    ).toBe(409);
   });
   it("stores the local date from the user's timezone, not UTC", async () => {
     const u = await h.user();
     await u.patch("/api/v1/me", { timezone: "Asia/Kolkata" });
     const m = await metric(u);
-    const res = await u.post("/api/v1/metric-logs", { metricId: m.id, value: 1, recordedAt: "2026-03-01T20:00:00.000Z" });
+    const res = await u.post("/api/v1/metric-logs", {
+      metricId: m.id,
+      value: 1,
+      recordedAt: "2026-03-01T20:00:00.000Z",
+    });
     expect(res.body.data.localDate.slice(0, 10)).toBe("2026-03-02");
   });
   it("calculates goal progress and marks milestones reached", async () => {
     const u = await h.user();
     const m = await metric(u);
-    const g = (await u.post("/api/v1/goals", {
-      title: "Hydrate",
-      metricId: m.id,
-      target: 1000,
-      period: "daily",
-      milestones: [{ title: "Half", threshold: 500 }, { title: "All", threshold: 1000 }],
-    })).body.data;
+    const g = (
+      await u.post("/api/v1/goals", {
+        title: "Hydrate",
+        metricId: m.id,
+        target: 1000,
+        period: "daily",
+        milestones: [
+          { title: "Half", threshold: 500 },
+          { title: "All", threshold: 1000 },
+        ],
+      })
+    ).body.data;
     await u.post("/api/v1/metric-logs", { metricId: m.id, value: 300 });
     await u.post("/api/v1/metric-logs", { metricId: m.id, value: 300 });
     const res = (await u.get(`/api/v1/goals/${g.id}`)).body.data;
     expect(res.current).toBe(600);
     expect(res.progress).toBeCloseTo(0.6);
-    const reached = (await u.get(`/api/v1/goals/${g.id}`)).body.data.milestones.filter((x: { reachedAt: string }) => x.reachedAt);
+    const reached = (await u.get(`/api/v1/goals/${g.id}`)).body.data.milestones.filter(
+      (x: { reachedAt: string }) => x.reachedAt,
+    );
     expect(reached.map((x: { title: string }) => x.title)).toEqual(["Half"]);
   });
 });
@@ -147,7 +181,8 @@ describe("analytics", () => {
     await backdated(t.id, u.id, -2, "pending");
     await backdated(t.id, u.id, -3, "rest");
     await backdated(t.id, u.id, -4, "skipped");
-    const res = (await u.get(`/api/v1/analytics/adherence?from=${shift(-4)}&to=${shift(-1)}`)).body.data;
+    const res = (await u.get(`/api/v1/analytics/adherence?from=${shift(-4)}&to=${shift(-1)}`)).body
+      .data;
     expect(res).toMatchObject({ eligible: 2, completed: 1, skipped: 1, rest: 1, adherence: 0.5 });
     expect(res.denominator).toContain("excluded");
   });
@@ -155,7 +190,8 @@ describe("analytics", () => {
     const u = await h.user();
     const { occurrence: o } = await dailyTask(u, "Long", "FREQ=DAILY");
     await u.post(`/api/v1/occurrences/${o.id}/complete`);
-    const res = (await u.get(`/api/v1/analytics/adherence?from=${today}&to=${shift(30)}`)).body.data;
+    const res = (await u.get(`/api/v1/analytics/adherence?from=${today}&to=${shift(30)}`)).body
+      .data;
     expect(res.adherence).toBe(1);
     expect(res.to).toBe(today);
   });
@@ -163,9 +199,15 @@ describe("analytics", () => {
     const u = await h.user();
     const { task: t } = await dailyTask(u);
     await backdated(t.id, u.id, -1, "completed");
-    const res = (await u.get(`/api/v1/analytics/adherence?from=${shift(-1)}&to=${today}`)).body.data;
+    const res = (await u.get(`/api/v1/analytics/adherence?from=${shift(-1)}&to=${today}`)).body
+      .data;
     expect(res).toMatchObject({ eligible: 1, completed: 1, adherence: 1 });
-    const series = await query(u, { source: "occurrences", measure: "adherence", from: today, to: today });
+    const series = await query(u, {
+      source: "occurrences",
+      measure: "adherence",
+      from: today,
+      to: today,
+    });
     expect(series.body.data[0].value).toBeNull();
     expect((await u.get("/api/v1/home")).body.data.counts.eligible).toBe(1);
   });
@@ -173,12 +215,25 @@ describe("analytics", () => {
     const u = await h.user();
     const { task: t } = await dailyTask(u);
     await backdated(t.id, u.id, -1, "completed");
-    const series = await query(u, { source: "occurrences", measure: "completed", grain: "day", from: shift(-1), to: today });
+    const series = await query(u, {
+      source: "occurrences",
+      measure: "completed",
+      grain: "day",
+      from: shift(-1),
+      to: today,
+    });
     expect(series.body.data.find((p: { bucket: string }) => p.bucket === shift(-1)).value).toBe(1);
-    const m = (await u.post("/api/v1/metrics", { key: "steps", label: "Steps", kind: "quantity" })).body.data;
+    const m = (await u.post("/api/v1/metrics", { key: "steps", label: "Steps", kind: "quantity" }))
+      .body.data;
     await u.post("/api/v1/metric-logs", { metricId: m.id, value: 100 });
     await u.post("/api/v1/metric-logs", { metricId: m.id, value: 50 });
-    const metricSeries = await query(u, { source: "metric", measure: "sum", metricId: m.id, from: today, to: today });
+    const metricSeries = await query(u, {
+      source: "metric",
+      measure: "sum",
+      metricId: m.id,
+      from: today,
+      to: today,
+    });
     expect(metricSeries.body.data[0].value).toBe(150);
   });
   it("rejects anything outside the allowlist, including SQL in any field", async () => {
@@ -206,11 +261,17 @@ describe("analytics", () => {
   });
   it("saves dashboards with widgets", async () => {
     const u = await h.user();
-    const widget = { title: "Adherence", chartType: "line", querySpec: { source: "occurrences", measure: "adherence", rangeDays: 30 } };
+    const widget = {
+      title: "Adherence",
+      chartType: "line",
+      querySpec: { source: "occurrences", measure: "adherence", rangeDays: 30 },
+    };
     const d = await u.post("/api/v1/dashboards", { name: "Main", widgets: [widget] });
     expect(d.status).toBe(201);
     expect(d.body.data.widgets).toHaveLength(1);
-    const edited = await u.patch(`/api/v1/dashboards/${d.body.data.id}`, { widgets: [widget, { ...widget, title: "Two" }] });
+    const edited = await u.patch(`/api/v1/dashboards/${d.body.data.id}`, {
+      widgets: [widget, { ...widget, title: "Two" }],
+    });
     expect(edited.body.data.widgets).toHaveLength(2);
   });
 });
@@ -219,34 +280,71 @@ describe("ownership of tracking and analytics", () => {
   it("hides occurrences, metrics, goals and dashboards from another user", async () => {
     const [owner, other] = [await h.user(), await h.user()];
     const { occurrence: o, planner: p } = await dailyTask(owner);
-    const m = (await owner.post("/api/v1/metrics", { key: "secret", label: "S", kind: "quantity" })).body.data;
+    const m = (await owner.post("/api/v1/metrics", { key: "secret", label: "S", kind: "quantity" }))
+      .body.data;
     await owner.post("/api/v1/metric-logs", { metricId: m.id, value: 42 });
-    const g = (await owner.post("/api/v1/goals", { title: "G", target: 1, period: "daily", metricId: m.id })).body.data;
+    const g = (
+      await owner.post("/api/v1/goals", { title: "G", target: 1, period: "daily", metricId: m.id })
+    ).body.data;
     const d = (await owner.post("/api/v1/dashboards", { name: "D" })).body.data;
 
     for (const action of ["complete", "reopen"]) {
       expect((await other.post(`/api/v1/occurrences/${o.id}/${action}`)).status).toBe(404);
     }
-    expect((await other.post(`/api/v1/occurrences/${o.id}/skip`, { reason: "x" })).status).toBe(404);
-    expect((await other.post(`/api/v1/occurrences/${o.id}/defer`, { toDate: shift(1) })).status).toBe(404);
-    expect((await other.get(`/api/v1/occurrences?from=${today}&to=${today}`)).body.data).toHaveLength(0);
-    expect((await other.get(`/api/v1/occurrences?from=${today}&to=${today}&plannerId=${p.id}`)).body.data).toHaveLength(0);
-    expect((await other.post("/api/v1/metric-logs", { metricId: m.id, value: 1 })).status).toBe(404);
+    expect((await other.post(`/api/v1/occurrences/${o.id}/skip`, { reason: "x" })).status).toBe(
+      404,
+    );
+    expect(
+      (await other.post(`/api/v1/occurrences/${o.id}/defer`, { toDate: shift(1) })).status,
+    ).toBe(404);
+    expect(
+      (await other.get(`/api/v1/occurrences?from=${today}&to=${today}`)).body.data,
+    ).toHaveLength(0);
+    expect(
+      (await other.get(`/api/v1/occurrences?from=${today}&to=${today}&plannerId=${p.id}`)).body
+        .data,
+    ).toHaveLength(0);
+    expect((await other.post("/api/v1/metric-logs", { metricId: m.id, value: 1 })).status).toBe(
+      404,
+    );
     expect((await other.get(`/api/v1/metric-logs?metricId=${m.id}`)).status).toBe(404);
     expect((await other.get("/api/v1/metric-logs")).body.data).toHaveLength(0);
-    expect((await other.get(`/api/v1/metrics/${m.id}/series?from=${today}&to=${today}`)).status).toBe(404);
+    expect(
+      (await other.get(`/api/v1/metrics/${m.id}/series?from=${today}&to=${today}`)).status,
+    ).toBe(404);
     expect((await other.get(`/api/v1/goals/${g.id}`)).status).toBe(404);
     expect((await other.delete(`/api/v1/goals/${g.id}`)).status).toBe(404);
-    expect((await other.post("/api/v1/goals", { title: "X", target: 1, period: "daily", metricId: m.id })).status).toBe(404);
+    expect(
+      (
+        await other.post("/api/v1/goals", {
+          title: "X",
+          target: 1,
+          period: "daily",
+          metricId: m.id,
+        })
+      ).status,
+    ).toBe(404);
     expect((await other.get(`/api/v1/dashboards/${d.id}`)).status).toBe(404);
     expect((await other.patch(`/api/v1/dashboards/${d.id}`, { name: "X" })).status).toBe(404);
     expect((await other.delete(`/api/v1/dashboards/${d.id}`)).status).toBe(404);
 
-    const query = (spec: object) => other.post("/api/v1/analytics/query", { from: today, to: today, ...spec });
+    const query = (spec: object) =>
+      other.post("/api/v1/analytics/query", { from: today, to: today, ...spec });
     expect((await query({ source: "metric", measure: "sum", metricId: m.id })).status).toBe(404);
-    expect((await query({ source: "occurrences", measure: "completed", plannerId: p.id })).status).toBe(404);
-    expect((await other.get(`/api/v1/analytics/adherence?from=${today}&to=${today}&plannerId=${p.id}`)).status).toBe(404);
-    const stolen = { title: "W", chartType: "line", querySpec: { source: "metric", measure: "sum", rangeDays: 7, metricId: m.id } };
-    expect((await other.post("/api/v1/dashboards", { name: "X", widgets: [stolen] })).status).toBe(404);
+    expect(
+      (await query({ source: "occurrences", measure: "completed", plannerId: p.id })).status,
+    ).toBe(404);
+    expect(
+      (await other.get(`/api/v1/analytics/adherence?from=${today}&to=${today}&plannerId=${p.id}`))
+        .status,
+    ).toBe(404);
+    const stolen = {
+      title: "W",
+      chartType: "line",
+      querySpec: { source: "metric", measure: "sum", rangeDays: 7, metricId: m.id },
+    };
+    expect((await other.post("/api/v1/dashboards", { name: "X", widgets: [stolen] })).status).toBe(
+      404,
+    );
   });
 });

@@ -11,6 +11,15 @@ import "@/styles/index.css";
 
 registerSW({ immediate: true });
 
+if (import.meta.env.VITE_SENTRY_DSN) {
+  void import("@sentry/react").then((Sentry) =>
+    Sentry.init({
+      dsn: import.meta.env.VITE_SENTRY_DSN as string,
+      dataCollection: { userInfo: false, httpBodies: [] },
+    }),
+  );
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <Provider store={store}>

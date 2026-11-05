@@ -4,7 +4,11 @@ import { Bar } from "@lifeos/ui/components/charts/bar";
 import { BarChart } from "@lifeos/ui/components/charts/bar-chart";
 import { BarXAxis } from "@lifeos/ui/components/charts/bar-x-axis";
 import { Grid } from "@lifeos/ui/components/charts/grid";
-import { HeatmapCells, HeatmapChart, type HeatmapColumn } from "@lifeos/ui/components/charts/heatmap";
+import {
+  HeatmapCells,
+  HeatmapChart,
+  type HeatmapColumn,
+} from "@lifeos/ui/components/charts/heatmap";
 import { Line } from "@lifeos/ui/components/charts/line";
 import { LineChart } from "@lifeos/ui/components/charts/line-chart";
 import { ChartTooltip } from "@lifeos/ui/components/charts/tooltip";
@@ -26,16 +30,35 @@ const display = (value: number | null, measure: string) => {
 };
 
 /** Every chart has a table with the same values, for screen readers and exact reading. */
-export function AccessibleDataTable({ points, measure, caption }: { points: SeriesPoint[]; measure: string; caption: string }) {
+export function AccessibleDataTable({
+  points,
+  measure,
+  caption,
+}: {
+  points: SeriesPoint[];
+  measure: string;
+  caption: string;
+}) {
   return (
     <div className="max-h-64 overflow-auto">
       <table className="w-full text-sm">
         <caption className="sr-only">{caption}</caption>
-        <thead><tr className="border-b text-left text-ink-muted"><th scope="col" className="py-1">Period</th><th scope="col" className="py-1 text-right">Value</th></tr></thead>
+        <thead>
+          <tr className="border-b text-left text-ink-muted">
+            <th scope="col" className="py-1">
+              Period
+            </th>
+            <th scope="col" className="py-1 text-right">
+              Value
+            </th>
+          </tr>
+        </thead>
         <tbody>
           {points.map((p) => (
             <tr key={p.bucket} className="border-b last:border-0">
-              <th scope="row" className="py-1 text-left font-normal">{formatDate(p.bucket, { month: "short", day: "numeric", year: "numeric" })}</th>
+              <th scope="row" className="py-1 text-left font-normal">
+                {formatDate(p.bucket, { month: "short", day: "numeric", year: "numeric" })}
+              </th>
               <td className="py-1 text-right">{display(p.value, measure)}</td>
             </tr>
           ))}
@@ -87,33 +110,61 @@ export function Heatmap({ points }: { points: SeriesPoint[] }) {
       bins: column.bins.map((b) => ({ ...b, count: Math.ceil((b.count / peak) * 4) })),
     }));
   }, [points]);
-  if (data.length === 0) return <p className="py-8 text-center text-sm text-ink-muted">No data in this range.</p>;
+  if (data.length === 0)
+    return <p className="py-8 text-center text-sm text-ink-muted">No data in this range.</p>;
   return (
     <div className="max-w-full overflow-x-auto">
-      <HeatmapChart data={data} layout="fluid" binSize={16} gap={3} levelColors={HEATMAP_LEVELS} animate={!reduced}>
+      <HeatmapChart
+        data={data}
+        layout="fluid"
+        binSize={16}
+        gap={3}
+        levelColors={HEATMAP_LEVELS}
+        animate={!reduced}
+      >
         <HeatmapCells />
       </HeatmapChart>
     </div>
   );
 }
 
-export function ChartView({ type, points, measure }: { type: Widget["chartType"]; points: SeriesPoint[]; measure: string }) {
+export function ChartView({
+  type,
+  points,
+  measure,
+}: {
+  type: Widget["chartType"];
+  points: SeriesPoint[];
+  measure: string;
+}) {
   const { reduced } = useExperience();
   // A period with nothing eligible has no value. Drawing it as zero would invent a failure.
   const known = useMemo(() => points.filter((p) => p.value !== null), [points]);
   const data = useMemo(
-    () => known.map((p) => ({ date: new Date(`${p.bucket}T00:00:00Z`), value: p.value!, label: formatDate(p.bucket) })),
+    () =>
+      known.map((p) => ({
+        date: new Date(`${p.bucket}T00:00:00Z`),
+        value: p.value!,
+        label: formatDate(p.bucket),
+      })),
     [known],
   );
-  if (known.length === 0) return <p className="py-8 text-center text-sm text-ink-muted">No data in this range.</p>;
-  if (type === "stat") return <p className="py-6 text-center text-4xl font-semibold">{display(known[known.length - 1]!.value, measure)}</p>;
+  if (known.length === 0)
+    return <p className="py-8 text-center text-sm text-ink-muted">No data in this range.</p>;
+  if (type === "stat")
+    return (
+      <p className="py-6 text-center text-4xl font-semibold">
+        {display(known[known.length - 1]!.value, measure)}
+      </p>
+    );
   if (type === "heatmap") return <Heatmap points={known} />;
   const duration = reduced ? 0 : 600;
   const max = isPercent(measure) ? 1 : undefined;
   const values = known.map((p) => p.value!);
   const range = (
     <p className="mt-1 text-xs text-ink-muted">
-      Lowest {display(Math.min(...values), measure)}, highest {display(Math.max(...values), measure)}
+      Lowest {display(Math.min(...values), measure)}, highest{" "}
+      {display(Math.max(...values), measure)}
       {isPercent(measure) && type === "line" ? ". Scale runs from 0% to 100%." : ""}
     </p>
   );
@@ -169,7 +220,15 @@ export function resolveSpec(spec: WidgetSpec, today: string): QuerySpec {
   };
 }
 
-export function ChartWidget({ title, type, spec }: { title: string; type: Widget["chartType"]; spec: WidgetSpec }) {
+export function ChartWidget({
+  title,
+  type,
+  spec,
+}: {
+  title: string;
+  type: Widget["chartType"];
+  spec: WidgetSpec;
+}) {
   const { data: me } = api.useMeQuery();
   const [table, setTable] = useState(false);
   const today = localToday(me?.timezone ?? "UTC");
@@ -178,13 +237,23 @@ export function ChartWidget({ title, type, spec }: { title: string; type: Widget
     <figure className="card-surface flex min-w-0 flex-col p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
         <figcaption className="truncate font-medium">{title}</figcaption>
-        <button type="button" className="min-h-11 shrink-0 px-2 text-xs text-primary underline" aria-pressed={table} onClick={() => setTable(!table)}>
+        <button
+          type="button"
+          className="min-h-11 shrink-0 px-2 text-xs text-primary underline"
+          aria-pressed={table}
+          onClick={() => setTable(!table)}
+        >
           {table ? "Show chart" : "Show table"}
         </button>
       </div>
       {isLoading && <Skeleton className="h-40 w-full rounded-xl" />}
       {error && <ErrorState error={error} retry={() => void refetch()} />}
-      {data && (table ? <AccessibleDataTable points={data} measure={spec.measure} caption={title} /> : <ChartView type={type} points={data} measure={spec.measure} />)}
+      {data &&
+        (table ? (
+          <AccessibleDataTable points={data} measure={spec.measure} caption={title} />
+        ) : (
+          <ChartView type={type} points={data} measure={spec.measure} />
+        ))}
     </figure>
   );
 }

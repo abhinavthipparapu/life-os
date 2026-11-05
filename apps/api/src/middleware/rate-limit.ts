@@ -5,7 +5,12 @@ import type { ApiEnvelope } from "@lifeos/contracts";
 export type StoreFactory = (prefix: string) => Store | undefined;
 
 /** Keyed by user after auth, so one account cannot exhaust shared IP limits. Store is Redis in production. */
-export function limiter(name: string, limit: number, windowMs: number, store: StoreFactory): RequestHandler {
+export function limiter(
+  name: string,
+  limit: number,
+  windowMs: number,
+  store: StoreFactory,
+): RequestHandler {
   return rateLimit({
     windowMs,
     limit,
@@ -18,7 +23,12 @@ export function limiter(name: string, limit: number, windowMs: number, store: St
       const body: ApiEnvelope<never> = {
         data: null,
         meta: null,
-        error: { type: "about:blank", title: "Too many requests", status: 429, code: "rate_limited" },
+        error: {
+          type: "about:blank",
+          title: "Too many requests",
+          status: 429,
+          code: "rate_limited",
+        },
       };
       res.status(429).type("application/problem+json").json(body);
     },

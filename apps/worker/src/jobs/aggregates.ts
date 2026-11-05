@@ -23,7 +23,9 @@ export async function reconcileAggregatesJob({ prisma, log }: JobContext, now: D
         stored.length === expected.length &&
         expected.every((e) => {
           const s = stored.find((row) => row.metricKey === e.metricKey);
-          return s && s.value === e.value && s.eligible === e.eligible && s.completed === e.completed;
+          return (
+            s && s.value === e.value && s.eligible === e.eligible && s.completed === e.completed
+          );
         });
       if (!same) {
         drift += 1;

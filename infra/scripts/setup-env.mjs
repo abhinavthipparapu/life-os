@@ -24,6 +24,15 @@ const signature = sign("sha256", Buffer.from(body), {
   key: createPrivateKey({ key: jwk, format: "jwk" }),
   dsaEncoding: "ieee-p1363",
 }).toString("base64url");
+// Web Push keys are a P-256 pair: the public point and the private scalar, base64url encoded.
+const vapid = generateKeyPairSync("ec", { namedCurve: "P-256" }).privateKey.export({
+  format: "jwk",
+});
+const vapidPublic = Buffer.concat([
+  Buffer.from([4]),
+  Buffer.from(vapid.x, "base64url"),
+  Buffer.from(vapid.y, "base64url"),
+]).toString("base64url");
 const pg = secret();
 const lines = [
   `POSTGRES_PASSWORD=${pg}`,
@@ -40,6 +49,10 @@ const lines = [
   `API_PORT=4000`,
   `SUPABASE_SERVICE_ROLE_KEY=${body}.${signature}`,
   `SEED_DEMO_PASSWORD=${secret(12)}`,
+  `VAPID_PUBLIC_KEY=${vapidPublic}`,
+  `VAPID_PRIVATE_KEY=${vapid.d}`,
+  `VAPID_SUBJECT=mailto:admin@lifeos.local`,
+  `VITE_VAPID_PUBLIC_KEY=${vapidPublic}`,
   `AI_PROVIDER=mock`,
   `VITE_API_URL=http://localhost:4000`,
   `VITE_SUPABASE_URL=http://127.0.0.1:54321`,

@@ -16,7 +16,11 @@ export interface ActionInput {
   occurredAt?: string;
 }
 
-const NO_CELEBRATION: Celebration = { dayComplete: false, plannerCompleted: null, achievements: [] };
+const NO_CELEBRATION: Celebration = {
+  dayComplete: false,
+  plannerCompleted: null,
+  achievements: [],
+};
 const dateString = (d: Date) => d.toISOString().slice(0, 10);
 
 function targetStatus(action: OccurrenceAction, kind?: "skip" | "rest") {
@@ -42,12 +46,17 @@ export async function applyOccurrenceAction(
   if (locked.length === 0) throw notFound("Occurrence");
   const occurrence = await tx.taskOccurrence.findUniqueOrThrow({
     where: { id },
-    include: { task: { select: { plannerId: true, deletedAt: true, planner: { select: { timezone: true } } } } },
+    include: {
+      task: {
+        select: { plannerId: true, deletedAt: true, planner: { select: { timezone: true } } },
+      },
+    },
   });
   if (occurrence.task.deletedAt) throw notFound("Occurrence");
 
   const status = targetStatus(action, input.kind);
-  if (occurrence.status === status) return { occurrence, celebration: NO_CELEBRATION, changed: false };
+  if (occurrence.status === status)
+    return { occurrence, celebration: NO_CELEBRATION, changed: false };
   if (input.expectedVersion !== undefined && input.expectedVersion !== occurrence.version) {
     throw conflict("This occurrence was changed elsewhere", occurrence);
   }
@@ -77,8 +86,15 @@ export async function applyOccurrenceAction(
     },
   });
   const date = dateString(occurrence.date);
-  await tx.outboxEvent.create({ data: { userId, type: "occurrence.changed", payload: { date, occurrenceId: id } } });
-  await audit(tx, { actorId: userId, action: `occurrence.${action}`, entityType: "occurrence", entityId: id });
+  await tx.outboxEvent.create({
+    data: { userId, type: "occurrence.changed", payload: { date, occurrenceId: id } },
+  });
+  await audit(tx, {
+    actorId: userId,
+    action: `occurrence.${action}`,
+    entityType: "occurrence",
+    entityId: id,
+  });
 
   const today = localDateOf(new Date(), occurrence.task.planner.timezone);
   const celebration =
@@ -95,7 +111,11 @@ export function occurrenceService(prisma: PrismaClient) {
         where: {
           userId,
           date: { gte: new Date(`${from}T00:00:00Z`), lte: new Date(`${to}T00:00:00Z`) },
-          task: { deletedAt: null, ...(plannerId ? { plannerId } : {}), planner: { deletedAt: null } },
+          task: {
+            deletedAt: null,
+            ...(plannerId ? { plannerId } : {}),
+            planner: { deletedAt: null },
+          },
         },
         orderBy: [{ date: "asc" }, { scheduledAt: "asc" }, { id: "asc" }],
         take: 2000,
@@ -118,16 +138,22 @@ export function occurrenceService(prisma: PrismaClient) {
       prisma.$transaction((tx) => applyOccurrenceAction(tx, userId, id, action, input)),
 
     /** History stays immutable: the original closes as not-applicable and a new instance is created. */
-    defer: (userId: string, id: string, input: { toDate: string; expectedVersion?: number; reason?: string }) =>
+    defer: (
+      userId: string,
+      id: string,
+      input: { toDate: string; expectedVersion?: number; reason?: string },
+    ) =>
       prisma.$transaction(async (tx) => {
         const source = await tx.taskOccurrence.findFirst({ where: { id, userId } });
         if (!source) throw notFound("Occurrence");
-        if (source.status !== "pending") throw badRequest("Only pending occurrences can be deferred", "invalid_transition");
+        if (source.status !== "pending")
+          throw badRequest("Only pending occurrences can be deferred", "invalid_transition");
         if (input.expectedVersion !== undefined && input.expectedVersion !== source.version) {
           throw conflict("This occurrence was changed elsewhere", source);
         }
         const from = dateString(source.date);
-        if (input.toDate === from) throw badRequest("Choose a different date", "invalid_transition");
+        if (input.toDate === from)
+          throw badRequest("Choose a different date", "invalid_transition");
         const moved = await tx.taskOccurrence.create({
           data: {
             userId,
@@ -150,9 +176,18 @@ export function occurrenceService(prisma: PrismaClient) {
           },
         });
         await tx.outboxEvent.createMany({
-          data: [from, input.toDate].map((date) => ({ userId, type: "occurrence.changed", payload: { date } })),
+          data: [from, input.toDate].map((date) => ({
+            userId,
+            type: "occurrence.changed",
+            payload: { date },
+          })),
         });
-        await audit(tx, { actorId: userId, action: "occurrence.defer", entityType: "occurrence", entityId: id });
+        await audit(tx, {
+          actorId: userId,
+          action: "occurrence.defer",
+          entityType: "occurrence",
+          entityId: id,
+        });
         return moved;
       }),
   };

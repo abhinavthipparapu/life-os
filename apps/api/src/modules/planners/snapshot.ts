@@ -26,7 +26,11 @@ interface TaskRow {
 }
 
 /** Reads a planner into the portable shape used for clones, templates and AI drafts. */
-export async function plannerToSnapshot(tx: Tx, userId: string, plannerId: string): Promise<PlannerSnapshot> {
+export async function plannerToSnapshot(
+  tx: Tx,
+  userId: string,
+  plannerId: string,
+): Promise<PlannerSnapshot> {
   const planner = await tx.planner.findFirst({
     where: { id: plannerId, userId, deletedAt: null },
     include: {
@@ -81,11 +85,17 @@ interface MaterializeOptions {
 }
 
 /** Copies a snapshot into new user-owned rows. Call inside a transaction so a copy is all-or-nothing. */
-export async function materializeSnapshot(tx: Tx, snapshot: PlannerSnapshot, options: MaterializeOptions) {
+export async function materializeSnapshot(
+  tx: Tx,
+  snapshot: PlannerSnapshot,
+  options: MaterializeOptions,
+) {
   const { userId, timezone } = options;
   const startsOn = options.startsOn ?? localDateOf(new Date(), timezone);
   if (options.categoryId) {
-    const owned = await tx.category.findFirst({ where: { id: options.categoryId, userId, deletedAt: null } });
+    const owned = await tx.category.findFirst({
+      where: { id: options.categoryId, userId, deletedAt: null },
+    });
     if (!owned) throw notFound("Category");
   }
   const name = options.name ?? snapshot.name;
@@ -112,7 +122,12 @@ export async function materializeSnapshot(tx: Tx, snapshot: PlannerSnapshot, opt
       })),
     });
   }
-  const insert = async (task: PlanTask, sectionId: string, parentTaskId: string | null, sortOrder: number) => {
+  const insert = async (
+    task: PlanTask,
+    sectionId: string,
+    parentTaskId: string | null,
+    sortOrder: number,
+  ) => {
     const created = await tx.task.create({
       data: {
         userId,
@@ -146,7 +161,9 @@ export async function materializeSnapshot(tx: Tx, snapshot: PlannerSnapshot, opt
     }
   };
   for (const [position, section] of snapshot.sections.entries()) {
-    const row = await tx.plannerSection.create({ data: { plannerId: planner.id, name: section.name, position } });
+    const row = await tx.plannerSection.create({
+      data: { plannerId: planner.id, name: section.name, position },
+    });
     for (const [i, task] of section.tasks.entries()) await insert(task, row.id, null, i);
   }
   return planner;

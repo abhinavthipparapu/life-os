@@ -24,7 +24,9 @@ export async function syncNow() {
     if (summary.conflicts.length) store.dispatch(ui.actions.setConflicts(summary.conflicts));
     for (const c of summary.celebrations) store.dispatch(ui.actions.celebrate(c as Celebration));
     if (summary.sent) {
-      store.dispatch(api.util.invalidateTags(["Occurrence", "Home", "Analytics", "Achievement", "Goal"]));
+      store.dispatch(
+        api.util.invalidateTags(["Occurrence", "Home", "Analytics", "Achievement", "Goal"]),
+      );
     }
   } catch {
     // The queue is untouched on failure, and the next trigger retries it.
@@ -82,7 +84,8 @@ export function useOccurrences(from: string, to: string, plannerId?: string) {
   }, [from, to, plannerId]);
 
   useEffect(() => {
-    if (query.data) void replaceRange(from, to, query.data as CachedOccurrence[], plannerId).then(load);
+    if (query.data)
+      void replaceRange(from, to, query.data as CachedOccurrence[], plannerId).then(load);
     else if (!online || query.isError) void load();
   }, [query.data, query.isError, online, from, to, plannerId, load]);
 

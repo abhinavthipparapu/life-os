@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { adherence, aggregate, dailyScore, goalProgress, localDateOf, streaks, tally } from "./index";
+import {
+  adherence,
+  aggregate,
+  dailyScore,
+  goalProgress,
+  localDateOf,
+  streaks,
+  tally,
+} from "./index";
 
 describe("tally and adherence", () => {
   it("excludes rest and not-applicable from the denominator", () => {
@@ -20,17 +28,27 @@ describe("tally and adherence", () => {
 describe("streaks", () => {
   const done = (date: string) => ({ date, eligible: 1, completed: 1 });
   it("counts consecutive finished days", () => {
-    expect(streaks([done("2026-01-01"), done("2026-01-02")], "2026-01-02")).toEqual({ current: 2, longest: 2 });
+    expect(streaks([done("2026-01-01"), done("2026-01-02")], "2026-01-02")).toEqual({
+      current: 2,
+      longest: 2,
+    });
   });
   it("does not break on a rest day or a day with nothing scheduled", () => {
-    const days = [done("2026-01-01"), { date: "2026-01-02", eligible: 0, completed: 0 }, done("2026-01-04")];
+    const days = [
+      done("2026-01-01"),
+      { date: "2026-01-02", eligible: 0, completed: 0 },
+      done("2026-01-04"),
+    ];
     expect(streaks(days, "2026-01-04").current).toBe(2);
   });
   it("does not break for an unfinished today, but breaks for a missed past day", () => {
     const today = { date: "2026-01-03", eligible: 2, completed: 0 };
     expect(streaks([done("2026-01-02"), today], "2026-01-03").current).toBe(1);
     const missed = { date: "2026-01-02", eligible: 1, completed: 0 };
-    expect(streaks([done("2026-01-01"), missed, done("2026-01-03")], "2026-01-03")).toEqual({ current: 1, longest: 1 });
+    expect(streaks([done("2026-01-01"), missed, done("2026-01-03")], "2026-01-03")).toEqual({
+      current: 1,
+      longest: 1,
+    });
   });
 });
 

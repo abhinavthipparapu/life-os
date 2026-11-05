@@ -69,7 +69,9 @@ export function goalService(prisma: PrismaClient) {
     createGoal: (userId: string, input: z.output<typeof createGoal>) =>
       prisma.$transaction(async (tx) => {
         if (input.metricId) {
-          const owned = await tx.metricDefinition.findFirst({ where: { id: input.metricId, userId, deletedAt: null } });
+          const owned = await tx.metricDefinition.findFirst({
+            where: { id: input.metricId, userId, deletedAt: null },
+          });
           if (!owned) throw notFound("Metric");
         }
         const { milestones, startsOn, endsOn, ...data } = input;
@@ -83,15 +85,28 @@ export function goalService(prisma: PrismaClient) {
           },
           include: { milestones: true },
         });
-        await audit(tx, { actorId: userId, action: "goal.create", entityType: "goal", entityId: goal.id });
+        await audit(tx, {
+          actorId: userId,
+          action: "goal.create",
+          entityType: "goal",
+          entityId: goal.id,
+        });
         return goal;
       }),
 
     archive: (userId: string, id: string) =>
       prisma.$transaction(async (tx) => {
-        const { count } = await tx.goal.updateMany({ where: { id, userId, deletedAt: null }, data: { deletedAt: new Date() } });
+        const { count } = await tx.goal.updateMany({
+          where: { id, userId, deletedAt: null },
+          data: { deletedAt: new Date() },
+        });
         if (count === 0) throw notFound("Goal");
-        await audit(tx, { actorId: userId, action: "goal.archive", entityType: "goal", entityId: id });
+        await audit(tx, {
+          actorId: userId,
+          action: "goal.archive",
+          entityType: "goal",
+          entityId: id,
+        });
       }),
   };
 }

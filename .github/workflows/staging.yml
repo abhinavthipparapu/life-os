@@ -1,0 +1,23 @@
+name: Staging
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency: { group: staging, cancel-in-progress: false }
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version-file: .nvmrc }
+      - run: corepack enable && pnpm install --frozen-lockfile
+      # Migrations run before cutover, so new code never meets an old schema.
+      - run: pnpm prisma migrate deploy
+        env: { DATABASE_URL: "${{ secrets.STAGING_DATABASE_URL }}" }
+      - run: curl -fsS -X POST "${{ secrets.RENDER_STAGING_API_HOOK }}" && curl -fsS -X POST "${{ secrets.RENDER_STAGING_WORKER_HOOK }}"
+      - run: curl -fsS -X POST "${{ secrets.VERCEL_STAGING_HOOK }}"
+      - name: Smoke test
+        run: node infra/scripts/smoke.mjs "${{ vars.STAGING_API_URL }}"

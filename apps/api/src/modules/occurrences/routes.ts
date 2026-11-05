@@ -1,4 +1,10 @@
-import { completeOccurrence, deferOccurrence, occurrenceQuery, reopenOccurrence, skipOccurrence } from "@lifeos/contracts";
+import {
+  completeOccurrence,
+  deferOccurrence,
+  occurrenceQuery,
+  reopenOccurrence,
+  skipOccurrence,
+} from "@lifeos/contracts";
 import { Router } from "express";
 import type { Deps } from "../../shared/deps.js";
 import { param, parse, send, userId } from "../../shared/http.js";
@@ -14,7 +20,12 @@ export function occurrenceRoutes({ prisma }: Deps) {
   });
   router.post("/:id/complete", async (req, res) => {
     const input = parse(completeOccurrence, req.body);
-    const { occurrence, celebration } = await service.act(userId(req), param(req, "id"), "complete", input);
+    const { occurrence, celebration } = await service.act(
+      userId(req),
+      param(req, "id"),
+      "complete",
+      input,
+    );
     send(res, occurrence, { celebration });
   });
   router.post("/:id/skip", async (req, res) => {
@@ -28,7 +39,12 @@ export function occurrenceRoutes({ prisma }: Deps) {
     send(res, occurrence);
   });
   router.post("/:id/defer", async (req, res) =>
-    send(res, await service.defer(userId(req), param(req, "id"), parse(deferOccurrence, req.body)), null, 201),
+    send(
+      res,
+      await service.defer(userId(req), param(req, "id"), parse(deferOccurrence, req.body)),
+      null,
+      201,
+    ),
   );
   return router;
 }

@@ -129,8 +129,16 @@
   }
   body {
     background:
-      radial-gradient(1200px 600px at 85% -10%, color-mix(in srgb, var(--primary-bright) 9%, transparent), transparent 60%),
-      radial-gradient(900px 500px at -10% 10%, color-mix(in srgb, var(--focus) 8%, transparent), transparent 55%),
+      radial-gradient(
+        1200px 600px at 85% -10%,
+        color-mix(in srgb, var(--primary-bright) 9%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        900px 500px at -10% 10%,
+        color-mix(in srgb, var(--focus) 8%, transparent),
+        transparent 55%
+      ),
       var(--canvas);
     background-attachment: fixed;
     color: var(--ink);
@@ -151,7 +159,11 @@
 
 /* Layered card with restrained soft elevation. The border keeps it legible without the shadow. */
 @utility card-surface {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, white), var(--surface));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface) 96%, white),
+    var(--surface)
+  );
   border: 1px solid var(--line);
   border-radius: 1.25rem;
   box-shadow: var(--shadow-2);

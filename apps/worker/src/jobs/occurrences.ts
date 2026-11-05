@@ -23,7 +23,9 @@ export async function generateOccurrencesJob({ prisma, log }: JobContext, now: D
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
     for (const schedule of schedules) {
-      created += await prisma.$transaction((tx) => materializeOccurrences(tx, schedule.task.userId, schedule, now));
+      created += await prisma.$transaction((tx) =>
+        materializeOccurrences(tx, schedule.task.userId, schedule, now),
+      );
     }
     if (schedules.length < BATCH) break;
     cursor = schedules[schedules.length - 1]!.id;

@@ -12,9 +12,15 @@ type Tx = Prisma.TransactionClient;
 /** A saved widget can reference only this user's records, checked when it is saved. */
 async function assertWidgets(tx: Tx, owner: string, widgets: Widget[]) {
   for (const { querySpec: q } of widgets) {
-    const planner = q.plannerId ? await tx.planner.count({ where: { id: q.plannerId, userId: owner } }) : 1;
-    const category = q.categoryId ? await tx.category.count({ where: { id: q.categoryId, userId: owner } }) : 1;
-    const metric = q.metricId ? await tx.metricDefinition.count({ where: { id: q.metricId, userId: owner } }) : 1;
+    const planner = q.plannerId
+      ? await tx.planner.count({ where: { id: q.plannerId, userId: owner } })
+      : 1;
+    const category = q.categoryId
+      ? await tx.category.count({ where: { id: q.categoryId, userId: owner } })
+      : 1;
+    const metric = q.metricId
+      ? await tx.metricDefinition.count({ where: { id: q.metricId, userId: owner } })
+      : 1;
     if (!planner || !category || !metric) throw notFound();
   }
 }
@@ -56,7 +62,12 @@ export function dashboardRoutes({ prisma }: Deps) {
         data: { userId: owner, name: input.name, widgets: { create: widgetRows(input.widgets) } },
         include,
       });
-      await audit(tx, { actorId: owner, action: "dashboard.create", entityType: "dashboard", entityId: row.id });
+      await audit(tx, {
+        actorId: owner,
+        action: "dashboard.create",
+        entityType: "dashboard",
+        entityId: row.id,
+      });
       return row;
     });
     send(res, dashboard, null, 201);
@@ -80,7 +91,12 @@ export function dashboardRoutes({ prisma }: Deps) {
         });
       }
       if (input.name) await tx.dashboard.update({ where: { id }, data: { name: input.name } });
-      await audit(tx, { actorId: owner, action: "dashboard.update", entityType: "dashboard", entityId: id });
+      await audit(tx, {
+        actorId: owner,
+        action: "dashboard.update",
+        entityType: "dashboard",
+        entityId: id,
+      });
       return find(tx, owner, id);
     });
     send(res, dashboard);
@@ -94,7 +110,12 @@ export function dashboardRoutes({ prisma }: Deps) {
         data: { deletedAt: new Date() },
       });
       if (count === 0) throw notFound("Dashboard");
-      await audit(tx, { actorId: owner, action: "dashboard.archive", entityType: "dashboard", entityId: id });
+      await audit(tx, {
+        actorId: owner,
+        action: "dashboard.archive",
+        entityType: "dashboard",
+        entityId: id,
+      });
     });
     res.status(204).end();
   });

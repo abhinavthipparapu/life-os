@@ -13,7 +13,10 @@ export function adminRoutes({ prisma }: Deps) {
   router.get("/audit-events", async (req, res) => {
     const q = parse(adminAuditQuery, req.query);
     const rows = await prisma.auditEvent.findMany({
-      where: { ...(q.actorId ? { actorId: q.actorId } : {}), ...(q.action ? { action: q.action } : {}) },
+      where: {
+        ...(q.actorId ? { actorId: q.actorId } : {}),
+        ...(q.action ? { action: q.action } : {}),
+      },
       orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       take: q.limit + 1,
       ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
@@ -28,9 +31,21 @@ export function adminRoutes({ prisma }: Deps) {
     const users = await prisma.profile.findMany({
       where: { email: { equals: email, mode: "insensitive" } },
       take: 5,
-      select: { authUserId: true, email: true, role: true, createdAt: true, accessRevokedAt: true, deletedAt: true },
+      select: {
+        authUserId: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        accessRevokedAt: true,
+        deletedAt: true,
+      },
     });
-    await audit(prisma, { actorId: userId(req), action: "admin.user_lookup", entityType: "profile", metadata: { found: users.length } });
+    await audit(prisma, {
+      actorId: userId(req),
+      action: "admin.user_lookup",
+      entityType: "profile",
+      metadata: { found: users.length },
+    });
     send(res, users);
   });
 
@@ -44,7 +59,13 @@ export function adminRoutes({ prisma }: Deps) {
         data: { accessRevokedAt: new Date() },
       });
       if (count === 0) throw notFound("User");
-      await audit(tx, { actorId: actor, action: "admin.revoke_access", entityType: "profile", entityId: id, metadata: { reason } });
+      await audit(tx, {
+        actorId: actor,
+        action: "admin.revoke_access",
+        entityType: "profile",
+        entityId: id,
+        metadata: { reason },
+      });
     });
     res.status(204).end();
   });
@@ -53,13 +74,23 @@ export function adminRoutes({ prisma }: Deps) {
     const since = new Date(Date.now() - 24 * HOUR_MS);
     const [pendingOutbox, oldest, failures, recent] = await Promise.all([
       prisma.outboxEvent.count({ where: { processedAt: null } }),
-      prisma.outboxEvent.findFirst({ where: { processedAt: null }, orderBy: { id: "asc" }, select: { createdAt: true } }),
+      prisma.outboxEvent.findFirst({
+        where: { processedAt: null },
+        orderBy: { id: "asc" },
+        select: { createdAt: true },
+      }),
       prisma.jobDeliveryLog.count({ where: { status: "failed", createdAt: { gte: since } } }),
-      prisma.jobDeliveryLog.groupBy({ by: ["jobName", "status"], where: { createdAt: { gte: since } }, _count: true }),
+      prisma.jobDeliveryLog.groupBy({
+        by: ["jobName", "status"],
+        where: { createdAt: { gte: since } },
+        _count: true,
+      }),
     ]);
     send(res, {
       pendingOutbox,
-      oldestPendingSeconds: oldest ? Math.round((Date.now() - oldest.createdAt.getTime()) / 1000) : 0,
+      oldestPendingSeconds: oldest
+        ? Math.round((Date.now() - oldest.createdAt.getTime()) / 1000)
+        : 0,
       failuresLast24h: failures,
       jobs: recent.map((r) => ({ job: r.jobName, status: r.status, count: r._count })),
     });

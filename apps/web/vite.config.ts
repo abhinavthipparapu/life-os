@@ -24,7 +24,10 @@ export default defineConfig({
       filename: "sw.ts",
       registerType: "autoUpdate",
       injectRegister: false,
-      injectManifest: { globPatterns: ["**/*.{js,css,html,svg,woff2}"], maximumFileSizeToCacheInBytes: 4_000_000 },
+      injectManifest: {
+        globPatterns: ["**/*.{js,css,html,svg,woff2}"],
+        maximumFileSizeToCacheInBytes: 4_000_000,
+      },
       manifest: {
         name: "LifeOS",
         short_name: "LifeOS",
@@ -33,10 +36,16 @@ export default defineConfig({
         background_color: "#F5F7FB",
         display: "standalone",
         start_url: "/app",
-        icons: [{ src: "/icons/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }],
+        icons: [
+          { src: "/icons/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" },
+        ],
       },
     }),
   ],
   server: { port: 5173, strictPort: true },
-  test: { environment: "jsdom", setupFiles: ["./src/test-setup.ts"], exclude: ["e2e/**", "node_modules/**"] },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./src/test-setup.ts"],
+    exclude: ["e2e/**", "node_modules/**"],
+  },
 });

@@ -9,14 +9,27 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [["list"]],
-  use: { baseURL: "http://localhost:5173", trace: "retain-on-failure", screenshot: "only-on-failure" },
+  use: {
+    baseURL: "http://localhost:5173",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+  },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
     { name: "mobile", use: { ...devices["Pixel 7"] } },
   ],
   webServer: [
-    { command: "pnpm exec tsx --env-file=../../.env src/server.ts", cwd: "../api", url: "http://localhost:4000/health/ready", reuseExistingServer: true },
-    { command: "pnpm exec tsx --env-file=../../.env src/worker.ts", cwd: "../worker", wait: { stdout: /LifeOS worker started/ } },
+    {
+      command: "pnpm exec tsx --env-file=../../.env src/server.ts",
+      cwd: "../api",
+      url: "http://localhost:4000/health/ready",
+      reuseExistingServer: true,
+    },
+    {
+      command: "pnpm exec tsx --env-file=../../.env src/worker.ts",
+      cwd: "../worker",
+      wait: { stdout: /LifeOS worker started/ },
+    },
     { command: "pnpm dev", url: "http://localhost:5173", reuseExistingServer: true },
   ],
 });

@@ -44,7 +44,9 @@ function BlankForm() {
     const sub = form.watch((values) => {
       try {
         localStorage.setItem(DRAFT_KEY, JSON.stringify(values));
-      } catch { /* Storage may be unavailable. The form still works. */ }
+      } catch {
+        /* Storage may be unavailable. The form still works. */
+      }
     });
     return () => sub.unsubscribe();
   }, [form]);
@@ -67,7 +69,12 @@ function BlankForm() {
   return (
     <form onSubmit={submit} noValidate className="card-surface space-y-4 p-5">
       <Field id="name" label="Name">
-        <Input id="name" aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? "name-error" : undefined} {...form.register("name")} />
+        <Input
+          id="name"
+          aria-invalid={Boolean(errors.name)}
+          aria-describedby={errors.name ? "name-error" : undefined}
+          {...form.register("name")}
+        />
         <FieldError id="name-error" message={errors.name?.message} />
       </Field>
       <Field id="description" label="Description">
@@ -77,14 +84,25 @@ function BlankForm() {
         <Field id="category" label="Category">
           <NativeSelect id="category" {...form.register("categoryId")}>
             <option value="">None</option>
-            {categories?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {categories?.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
           </NativeSelect>
         </Field>
         <Field id="color" label="Color">
-          <input id="color" type="color" className="h-11 w-full rounded-xl border bg-transparent p-1" {...form.register("color")} />
+          <input
+            id="color"
+            type="color"
+            className="h-11 w-full rounded-xl border bg-transparent p-1"
+            {...form.register("color")}
+          />
         </Field>
       </div>
-      <Button type="submit" disabled={isSubmitting}>Create and build</Button>
+      <Button type="submit" disabled={isSubmitting}>
+        Create and build
+      </Button>
     </form>
   );
 }
@@ -99,17 +117,28 @@ export function NewPlannerPage() {
           <TabsTrigger value="template">Template</TabsTrigger>
           <TabsTrigger value="ai">AI</TabsTrigger>
         </TabsList>
-        <TabsContent value="blank"><BlankForm /></TabsContent>
+        <TabsContent value="blank">
+          <BlankForm />
+        </TabsContent>
         <TabsContent value="template">
           <div className="card-surface p-5">
-            <p className="text-sm text-ink-muted">Preview a template and install your own editable copy.</p>
-            <Button className="mt-3" asChild><Link to="/app/templates">Browse templates</Link></Button>
+            <p className="text-sm text-ink-muted">
+              Preview a template and install your own editable copy.
+            </p>
+            <Button className="mt-3" asChild>
+              <Link to="/app/templates">Browse templates</Link>
+            </Button>
           </div>
         </TabsContent>
         <TabsContent value="ai">
           <div className="card-surface p-5">
-            <p className="text-sm text-ink-muted">Describe what you want. You review the draft, and nothing is created until you approve it.</p>
-            <Button className="mt-3" asChild><Link to="/app/ai">Open the assistant</Link></Button>
+            <p className="text-sm text-ink-muted">
+              Describe what you want. You review the draft, and nothing is created until you approve
+              it.
+            </p>
+            <Button className="mt-3" asChild>
+              <Link to="/app/ai">Open the assistant</Link>
+            </Button>
           </div>
         </TabsContent>
       </Tabs>

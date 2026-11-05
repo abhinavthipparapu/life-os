@@ -138,7 +138,10 @@ export const createFieldDefinition = z.object({
 export const occurrenceQuery = z
   .object({ from: localDate, to: localDate, plannerId: id.optional() })
   .refine((q) => q.from <= q.to, "from must not be after to")
-  .refine((q) => (Date.parse(q.to) - Date.parse(q.from)) / 86_400_000 <= 92, "Range is limited to 92 days");
+  .refine(
+    (q) => (Date.parse(q.to) - Date.parse(q.from)) / 86_400_000 <= 92,
+    "Range is limited to 92 days",
+  );
 export const completeOccurrence = z.object({
   expectedVersion: z.number().int().positive().optional(),
   value: z.number().finite().optional(),
@@ -174,7 +177,11 @@ export const createMetricLog = z.object({
   textValue: z.string().trim().max(2000).nullable().optional(),
 });
 export const metricLogQuery = pageQuery.extend({ metricId: id.optional() });
-export const seriesQuery = z.object({ from: localDate, to: localDate, grain: z.enum(["day", "week", "month"]).default("day") });
+export const seriesQuery = z.object({
+  from: localDate,
+  to: localDate,
+  grain: z.enum(["day", "week", "month"]).default("day"),
+});
 export const goalPeriod = z.enum(["daily", "weekly", "monthly", "yearly", "total"]);
 export const createGoal = z.object({
   title: name,
@@ -227,7 +234,10 @@ export const plannerSnapshot = z
     description: z.string().trim().max(2000).nullable().optional(),
     color: hexColor.optional(),
     icon: icon.optional(),
-    sections: z.array(z.object({ name, tasks: z.array(planTask).max(200) })).min(1).max(30),
+    sections: z
+      .array(z.object({ name, tasks: z.array(planTask).max(200) }))
+      .min(1)
+      .max(30),
     fields: z.array(createFieldDefinition).max(30).optional(),
   })
   .superRefine((plan, ctx) => {
@@ -315,7 +325,14 @@ export const widget = z.object({
     plannerId: id.optional(),
     categoryId: id.optional(),
   }),
-  layout: z.object({ x: z.number().int().min(0), y: z.number().int().min(0), w: z.number().int().min(1).max(12), h: z.number().int().min(1).max(12) }).optional(),
+  layout: z
+    .object({
+      x: z.number().int().min(0),
+      y: z.number().int().min(0),
+      w: z.number().int().min(1).max(12),
+      h: z.number().int().min(1).max(12),
+    })
+    .optional(),
 });
 export const createDashboard = z.object({ name, widgets: z.array(widget).max(24).default([]) });
 export const updateDashboard = createDashboard.partial();
@@ -387,10 +404,30 @@ export const accountDeletion = z.object({ confirm: z.literal("DELETE") });
 
 // Positive milestones only: nothing here is ever revoked or lost (section 1).
 export const ACHIEVEMENTS = [
-  { key: "first_completion", title: "First step", description: "Completed your first task", icon: "sparkles" },
-  { key: "perfect_day", title: "Perfect day", description: "Finished everything planned for a day", icon: "sun" },
-  { key: "streak_7", title: "One week strong", description: "Reached a 7 day streak", icon: "flame" },
-  { key: "streak_30", title: "Thirty days", description: "Reached a 30 day streak", icon: "trophy" },
+  {
+    key: "first_completion",
+    title: "First step",
+    description: "Completed your first task",
+    icon: "sparkles",
+  },
+  {
+    key: "perfect_day",
+    title: "Perfect day",
+    description: "Finished everything planned for a day",
+    icon: "sun",
+  },
+  {
+    key: "streak_7",
+    title: "One week strong",
+    description: "Reached a 7 day streak",
+    icon: "flame",
+  },
+  {
+    key: "streak_30",
+    title: "Thirty days",
+    description: "Reached a 30 day streak",
+    icon: "trophy",
+  },
   { key: "total_100", title: "Century", description: "Completed 100 tasks", icon: "award" },
 ] as const;
 

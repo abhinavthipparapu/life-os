@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { createPlannerWithTask, expectAccessible, PASSWORD, scheduleDaily, signUp } from "./helpers";
+import {
+  createPlannerWithTask,
+  expectAccessible,
+  PASSWORD,
+  scheduleDaily,
+  signUp,
+} from "./helpers";
 
 test("public pages load and protected pages redirect", async ({ page }) => {
   await page.goto("/");
@@ -54,7 +60,11 @@ test("new user plans, completes, undoes and sees progress", async ({ page }) => 
 test("template install gives an editable copy", async ({ page }) => {
   await signUp(page);
   await page.goto("/app/templates");
-  await page.getByRole("listitem").filter({ hasText: "Career growth" }).getByRole("button", { name: "Preview" }).click();
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: "Career growth" })
+    .getByRole("button", { name: "Preview" })
+    .click();
   await expect(page.getByRole("dialog").getByText("Deep work block")).toBeVisible();
   await page.getByRole("button", { name: "Use this template" }).click();
   await expect(page.getByRole("heading", { name: "Career growth" })).toBeVisible();
@@ -122,10 +132,15 @@ test("offline completion queues, labels and syncs on reconnect", async ({ page, 
   await expect(page.getByRole("button", { name: /Offline, 1 pending sync/ })).toBeVisible();
 
   await context.setOffline(false);
-  await expect(page.getByRole("button", { name: /Sync status: Synced/ })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: /Sync status: Synced/ })).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByText("Pending sync", { exact: true })).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole("checkbox", { name: /Walk/ })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByRole("checkbox", { name: /Walk/ })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
 });
 
 test("logout wipes cached private data", async ({ page }) => {
@@ -141,7 +156,10 @@ test("logout wipes cached private data", async ({ page }) => {
           const open = indexedDB.open("lifeos");
           open.onsuccess = () => {
             const req = open.result.transaction("occurrences").objectStore("occurrences").count();
-            req.onsuccess = () => { open.result.close(); resolve(req.result); };
+            req.onsuccess = () => {
+              open.result.close();
+              resolve(req.result);
+            };
           };
         }),
     );
@@ -168,7 +186,11 @@ test("account deletion needs the password and removes the login", async ({ page,
   await expect
     .poll(
       async () =>
-        (await request.post("http://127.0.0.1:54321/auth/v1/token?grant_type=password", { data: { email, password: PASSWORD } })).status(),
+        (
+          await request.post("http://127.0.0.1:54321/auth/v1/token?grant_type=password", {
+            data: { email, password: PASSWORD },
+          })
+        ).status(),
       { timeout: 30_000 },
     )
     .toBe(400);
@@ -179,7 +201,10 @@ test("account deletion needs the password and removes the login", async ({ page,
   await expect(page.getByRole("alert")).toHaveText("Email or password is incorrect.");
 });
 
-test("a token from a deleted account signs the browser out instead of reviving it", async ({ page, request }) => {
+test("a token from a deleted account signs the browser out instead of reviving it", async ({
+  page,
+  request,
+}) => {
   await signUp(page);
   const token = await page.evaluate(() => {
     const key = Object.keys(localStorage).find((k) => k.endsWith("-auth-token"))!;
@@ -192,11 +217,32 @@ test("a token from a deleted account signs the browser out instead of reviving i
   await page.getByRole("dialog").getByRole("button", { name: "Delete my account" }).click();
   await expect(page).toHaveURL("/");
   await expect
-    .poll(async () => (await request.get("http://localhost:4000/api/v1/me", { headers: { Authorization: `Bearer ${token}` } })).status(), { timeout: 30_000 })
+    .poll(
+      async () =>
+        (
+          await request.get("http://localhost:4000/api/v1/me", {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+        ).status(),
+      { timeout: 30_000 },
+    )
     .toBe(403);
 });
 
-for (const path of ["today", "calendar", "categories", "planners", "planners/new", "templates", "goals", "dashboards", "analytics", "ai", "notifications", "settings"]) {
+for (const path of [
+  "today",
+  "calendar",
+  "categories",
+  "planners",
+  "planners/new",
+  "templates",
+  "goals",
+  "dashboards",
+  "analytics",
+  "ai",
+  "notifications",
+  "settings",
+]) {
   test(`loads with no errors or accessibility violations: /app/${path}`, async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
@@ -205,7 +251,9 @@ for (const path of ["today", "calendar", "categories", "planners", "planners/new
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await page.waitForTimeout(400);
     await expectAccessible(page);
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
     expect(overflow, "page scrolls sideways").toBe(false);
     expect(errors).toEqual([]);
   });

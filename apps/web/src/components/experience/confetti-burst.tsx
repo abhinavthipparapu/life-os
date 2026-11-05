@@ -43,9 +43,17 @@ export function ConfettiBurst({ onDone }: { onDone: () => void }) {
 
   if (reduced) return null;
   return (
-    <div ref={root} aria-hidden className="pointer-events-none fixed inset-x-0 bottom-1/3 z-50 flex justify-center">
+    <div
+      ref={root}
+      aria-hidden
+      className="pointer-events-none fixed inset-x-0 bottom-1/3 z-50 flex justify-center"
+    >
       {particles.map((p, i) => (
-        <span key={i} className="particle absolute size-2.5 rounded-sm" style={{ background: p.color }} />
+        <span
+          key={i}
+          className="particle absolute size-2.5 rounded-sm"
+          style={{ background: p.color }}
+        />
       ))}
     </div>
   );
@@ -62,20 +70,34 @@ export function PlannerHero({ name, onClose }: { name: string; onClose: () => vo
     scope.current = createScope({ root }).add(() => {
       createTimeline()
         .add(".hero-card", { opacity: [0, 1], scale: [0.9, 1], duration: 320, ease: "out(3)" })
-        .add(".hero-icon", { rotate: [-12, 0], scale: [0.6, 1], duration: 420, ease: "outBack" }, "-=160");
+        .add(
+          ".hero-icon",
+          { rotate: [-12, 0], scale: [0.6, 1], duration: 420, ease: "outBack" },
+          "-=160",
+        );
     });
     return () => scope.current?.revert();
   }, [reduced]);
 
   return (
-    <div ref={root} role="dialog" aria-modal="true" aria-label="Planner complete" className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+    <div
+      ref={root}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Planner complete"
+      className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
+    >
       <div className="hero-card card-surface w-full max-w-sm p-8 text-center">
         <div className="hero-icon mx-auto mb-4 grid size-16 place-items-center rounded-full bg-reward-soft">
           <PartyPopper aria-hidden className="size-8 text-ink" />
         </div>
         <h2 className="text-2xl font-semibold">Planner complete</h2>
         <p className="mt-2 text-ink-muted">You finished everything in {name}.</p>
-        <button autoFocus onClick={onClose} className="tactile mt-6 min-h-11 w-full rounded-xl bg-primary px-4 font-medium text-primary-foreground">
+        <button
+          autoFocus
+          onClick={onClose}
+          className="tactile mt-6 min-h-11 w-full rounded-xl bg-primary px-4 font-medium text-primary-foreground"
+        >
           Wonderful
         </button>
       </div>

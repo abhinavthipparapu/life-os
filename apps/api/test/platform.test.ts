@@ -15,14 +15,30 @@ type U = Awaited<ReturnType<typeof h.user>>;
 const today = localDateOf(new Date(), "UTC");
 const snapshot = {
   name: "Starter",
-  sections: [{ name: "Daily", tasks: [{ title: "Walk", type: "checkbox", rrule: "FREQ=DAILY", children: [{ title: "Stretch", type: "checkbox" }] }] }],
+  sections: [
+    {
+      name: "Daily",
+      tasks: [
+        {
+          title: "Walk",
+          type: "checkbox",
+          rrule: "FREQ=DAILY",
+          children: [{ title: "Stretch", type: "checkbox" }],
+        },
+      ],
+    },
+  ],
 };
 const plannerCount = (id: string) => h.prisma.planner.count({ where: { userId: id } });
 
 async function occurrence(u: U) {
   const p = (await u.post("/api/v1/planners", { name: "P", timezone: "UTC" })).body.data;
-  await u.post(`/api/v1/planners/${p.id}/tasks`, { title: "T", schedule: { rrule: "FREQ=DAILY;COUNT=2", startsOn: today } });
-  return (await u.get(`/api/v1/occurrences?from=${today}&to=${today}&plannerId=${p.id}`)).body.data[0];
+  await u.post(`/api/v1/planners/${p.id}/tasks`, {
+    title: "T",
+    schedule: { rrule: "FREQ=DAILY;COUNT=2", startsOn: today },
+  });
+  return (await u.get(`/api/v1/occurrences?from=${today}&to=${today}&plannerId=${p.id}`)).body
+    .data[0];
 }
 
 describe("templates", () => {
@@ -36,21 +52,38 @@ describe("templates", () => {
     await u.patch(`/api/v1/tasks/${planner.tasks[0].id}`, { title: "Edited", expectedVersion: 1 });
     const version = (await u.get(`/api/v1/templates/${t.id}`)).body.data.versions[0];
     expect(version.snapshotJson.sections[0].tasks[0].title).toBe("Walk");
-    const install = await h.prisma.templateInstall.findFirstOrThrow({ where: { plannerId: planner.id } });
+    const install = await h.prisma.templateInstall.findFirstOrThrow({
+      where: { plannerId: planner.id },
+    });
     expect(install.versionId).toBe(version.id);
   });
   it("creates new versions while old ones stay installable", async () => {
     const u = await h.user();
     const t = (await u.post("/api/v1/templates", { name: "V", snapshot })).body.data;
-    const v2 = await u.post(`/api/v1/templates/${t.id}/versions`, { snapshot: { ...snapshot, name: "Second" } });
+    const v2 = await u.post(`/api/v1/templates/${t.id}/versions`, {
+      snapshot: { ...snapshot, name: "Second" },
+    });
     expect(v2.body.data.version).toBe(2);
-    expect((await u.get(`/api/v1/templates/${t.id}?version=1`)).body.data.versions[0].snapshotJson.name).toBe("Starter");
+    expect(
+      (await u.get(`/api/v1/templates/${t.id}?version=1`)).body.data.versions[0].snapshotJson.name,
+    ).toBe("Starter");
     const old = await u.post(`/api/v1/templates/${t.id}/instantiate`, { version: 1 });
     expect(old.body.data.name).toBe("Starter");
   });
   it("rolls back the whole install when a rule is invalid", async () => {
     const u = await h.user();
-    const bad = { ...snapshot, sections: [{ name: "X", tasks: [{ title: "Ok", type: "checkbox" }, { title: "Bad", type: "checkbox", rrule: "FREQ=SECONDLY" }] }] };
+    const bad = {
+      ...snapshot,
+      sections: [
+        {
+          name: "X",
+          tasks: [
+            { title: "Ok", type: "checkbox" },
+            { title: "Bad", type: "checkbox", rrule: "FREQ=SECONDLY" },
+          ],
+        },
+      ],
+    };
     const t = (await u.post("/api/v1/templates", { name: "Bad", snapshot: bad })).body.data;
     expect((await u.post(`/api/v1/templates/${t.id}/instantiate`, {})).status).toBe(400);
     expect(await plannerCount(u.id)).toBe(0);
@@ -67,7 +100,8 @@ describe("templates", () => {
     const u = await h.user();
     const t = (await u.post("/api/v1/templates", { name: "I", snapshot })).body.data;
     const key = randomUUID();
-    const send = () => u.post(`/api/v1/templates/${t.id}/instantiate`, {}).set("Idempotency-Key", key);
+    const send = () =>
+      u.post(`/api/v1/templates/${t.id}/instantiate`, {}).set("Idempotency-Key", key);
     const first = await send();
     const second = await send();
     expect(second.status).toBe(201);
@@ -86,25 +120,48 @@ describe("AI guardrails", () => {
     const applied = await u.post(`/api/v1/ai/planner-drafts/${draft.body.data.id}/apply`, {});
     expect(applied.status).toBe(201);
     expect(await plannerCount(u.id)).toBe(1);
-    expect((await u.post(`/api/v1/ai/planner-drafts/${draft.body.data.id}/apply`, {})).status).toBe(409);
+    expect((await u.post(`/api/v1/ai/planner-drafts/${draft.body.data.id}/apply`, {})).status).toBe(
+      409,
+    );
     expect(await plannerCount(u.id)).toBe(1);
   });
   it("applies edits made in the preview and validates them again", async () => {
     const u = await h.user();
-    const { id } = (await u.post("/api/v1/ai/planner-drafts", { prompt: "Build a study plan" })).body.data;
+    const { id } = (await u.post("/api/v1/ai/planner-drafts", { prompt: "Build a study plan" }))
+      .body.data;
     const invalid = { ...snapshot, sections: [] };
-    expect((await u.post(`/api/v1/ai/planner-drafts/${id}/apply`, { snapshot: invalid })).status).toBe(422);
-    const res = await u.post(`/api/v1/ai/planner-drafts/${id}/apply`, { snapshot: { ...snapshot, name: "Edited" } });
+    expect(
+      (await u.post(`/api/v1/ai/planner-drafts/${id}/apply`, { snapshot: invalid })).status,
+    ).toBe(422);
+    const res = await u.post(`/api/v1/ai/planner-drafts/${id}/apply`, {
+      snapshot: { ...snapshot, name: "Edited" },
+    });
     expect(res.body.data.name).toBe("Edited");
   });
   it("rejects schema-invalid, over-limit and invalid-schedule model output without saving", async () => {
     const outputs: unknown[] = [
       { nonsense: true },
-      { name: "Huge", sections: [{ name: "S", tasks: Array.from({ length: 201 }, (_, i) => ({ title: `T${i}`, type: "checkbox" })) }] },
-      { name: "Bad", sections: [{ name: "S", tasks: [{ title: "T", type: "checkbox", rrule: "FREQ=MINUTELY" }] }] },
+      {
+        name: "Huge",
+        sections: [
+          {
+            name: "S",
+            tasks: Array.from({ length: 201 }, (_, i) => ({ title: `T${i}`, type: "checkbox" })),
+          },
+        ],
+      },
+      {
+        name: "Bad",
+        sections: [
+          { name: "S", tasks: [{ title: "T", type: "checkbox", rrule: "FREQ=MINUTELY" }] },
+        ],
+      },
     ];
     for (const value of outputs) {
-      const provider: AiProvider = { ...createMockProvider(), completeJson: async () => ({ value, tokens: 10, model: "x" }) };
+      const provider: AiProvider = {
+        ...createMockProvider(),
+        completeJson: async () => ({ value, tokens: 10, model: "x" }),
+      };
       const hx = await createHarness({ ai: provider });
       const u = await hx.user();
       const res = await u.post("/api/v1/ai/planner-drafts", { prompt: "Plan something for me" });
@@ -132,20 +189,35 @@ describe("AI guardrails", () => {
 
     const evil: AiProvider = {
       ...base,
-      completeJson: async () => ({ value: { name: "x", sections: [{ name: "s", tasks: [{ title: "purging plan", type: "checkbox" }] }] }, tokens: 1, model: "m" }),
+      completeJson: async () => ({
+        value: {
+          name: "x",
+          sections: [{ name: "s", tasks: [{ title: "purging plan", type: "checkbox" }] }],
+        },
+        tokens: 1,
+        model: "m",
+      }),
     };
     const hy = await createHarness({ ai: evil });
     const v = await hy.user();
-    expect((await v.post("/api/v1/ai/planner-drafts", { prompt: "plan my week please" })).body.error.code).toBe("unsafe_content");
+    expect(
+      (await v.post("/api/v1/ai/planner-drafts", { prompt: "plan my week please" })).body.error
+        .code,
+    ).toBe("unsafe_content");
     await hy.prisma.$disconnect();
   });
   it("redacts contact details before they reach the provider", async () => {
     let seen = "";
     const base = createMockProvider();
-    const provider: AiProvider = { ...base, completeJson: async (s, u, m) => ((seen = u), base.completeJson(s, u, m)) };
+    const provider: AiProvider = {
+      ...base,
+      completeJson: async (s, u, m) => ((seen = u), base.completeJson(s, u, m)),
+    };
     const hx = await createHarness({ ai: provider });
     const u = await hx.user();
-    await u.post("/api/v1/ai/planner-drafts", { prompt: "plan for jane@example.com call +1 415 555 2671" });
+    await u.post("/api/v1/ai/planner-drafts", {
+      prompt: "plan for jane@example.com call +1 415 555 2671",
+    });
     expect(seen).not.toContain("jane@example.com");
     expect(seen).not.toContain("555");
     await hx.prisma.$disconnect();
@@ -153,9 +225,13 @@ describe("AI guardrails", () => {
   it("enforces the monthly budget before calling the provider, and records usage", async () => {
     const hx = await createHarness({ env: { AI_MONTHLY_TOKEN_BUDGET: "3000" } });
     const u = await hx.user();
-    expect((await u.post("/api/v1/ai/planner-drafts", { prompt: "first plan please" })).status).toBe(201);
+    expect(
+      (await u.post("/api/v1/ai/planner-drafts", { prompt: "first plan please" })).status,
+    ).toBe(201);
     expect((await u.get("/api/v1/ai/usage")).body.data.used).toBeGreaterThan(0);
-    await hx.prisma.aiUsage.create({ data: { userId: u.id, feature: "x", model: "m", tokens: 2900 } });
+    await hx.prisma.aiUsage.create({
+      data: { userId: u.id, feature: "x", model: "m", tokens: 2900 },
+    });
     const blocked = await u.post("/api/v1/ai/planner-drafts", { prompt: "second plan please" });
     expect(blocked.status).toBe(429);
     expect(blocked.body.error.code).toBe("ai_budget_exceeded");
@@ -171,17 +247,41 @@ describe("AI guardrails", () => {
   });
   it("requires opt-in for sensitive data and keeps sensitive metrics out of context", async () => {
     const u = await h.user();
-    expect((await u.post("/api/v1/ai/planner-drafts", { prompt: "plan with my health", includeSensitive: true })).status).toBe(403);
+    expect(
+      (
+        await u.post("/api/v1/ai/planner-drafts", {
+          prompt: "plan with my health",
+          includeSensitive: true,
+        })
+      ).status,
+    ).toBe(403);
     expect((await u.post("/api/v1/ai/insights", { includeSensitive: true })).status).toBe(403);
-    const m = (await u.post("/api/v1/metrics", { key: "medication", label: "Medication", kind: "quantity", isSensitive: true })).body.data;
+    const m = (
+      await u.post("/api/v1/metrics", {
+        key: "medication",
+        label: "Medication",
+        kind: "quantity",
+        isSensitive: true,
+      })
+    ).body.data;
     await u.post("/api/v1/metric-logs", { metricId: m.id, value: 2 });
     const stream = await u.post("/api/v1/ai/insights", {});
     expect(stream.text).not.toContain("Medication");
-    expect((await u.post("/api/v1/ai/ask", { question: "how much medication did I take" })).body.data.answer).not.toContain("Medication");
+    expect(
+      (await u.post("/api/v1/ai/ask", { question: "how much medication did I take" })).body.data
+        .answer,
+    ).not.toContain("Medication");
   });
   it("answers with exact server-calculated values, whatever the model says", async () => {
     const u = await h.user();
-    const m = (await u.post("/api/v1/metrics", { key: "water", label: "Water", kind: "quantity", unit: "ml" })).body.data;
+    const m = (
+      await u.post("/api/v1/metrics", {
+        key: "water",
+        label: "Water",
+        kind: "quantity",
+        unit: "ml",
+      })
+    ).body.data;
     await u.post("/api/v1/metric-logs", { metricId: m.id, value: 750 });
     const res = await u.post("/api/v1/ai/ask", { question: "how much water did I drink" });
     expect(res.body.data.answer).toContain("750 ml");
@@ -197,7 +297,12 @@ describe("AI guardrails", () => {
   it("proposes schedule changes, reports conflicts, and changes nothing until approved", async () => {
     const u = await h.user();
     const p = (await u.post("/api/v1/planners", { name: "S" })).body.data;
-    const t = (await u.post(`/api/v1/planners/${p.id}/tasks`, { title: "A", schedule: { rrule: "FREQ=DAILY", startsOn: today, localTime: "12:00" } })).body.data;
+    const t = (
+      await u.post(`/api/v1/planners/${p.id}/tasks`, {
+        title: "A",
+        schedule: { rrule: "FREQ=DAILY", startsOn: today, localTime: "12:00" },
+      })
+    ).body.data;
     const res = await u.post("/api/v1/ai/schedule-suggestions", { plannerId: p.id });
     expect(res.status).toBe(201);
     expect(res.body.data.proposals[0].current).toBe("12:00");
@@ -211,13 +316,22 @@ describe("AI guardrails", () => {
     const foreign = randomUUID();
     const provider: AiProvider = {
       ...base,
-      completeJson: async () => ({ value: { proposals: [{ taskId: foreign, localTime: "09:00", reason: "x" }] }, tokens: 1, model: "m" }),
+      completeJson: async () => ({
+        value: { proposals: [{ taskId: foreign, localTime: "09:00", reason: "x" }] },
+        tokens: 1,
+        model: "m",
+      }),
     };
     const hx = await createHarness({ ai: provider });
     const u = await hx.user();
     const p = (await u.post("/api/v1/planners", { name: "S" })).body.data;
-    await u.post(`/api/v1/planners/${p.id}/tasks`, { title: "A", schedule: { rrule: "FREQ=DAILY", startsOn: today } });
-    expect((await u.post("/api/v1/ai/schedule-suggestions", { plannerId: p.id })).body.data.proposals).toEqual([]);
+    await u.post(`/api/v1/planners/${p.id}/tasks`, {
+      title: "A",
+      schedule: { rrule: "FREQ=DAILY", startsOn: today },
+    });
+    expect(
+      (await u.post("/api/v1/ai/schedule-suggestions", { plannerId: p.id })).body.data.proposals,
+    ).toEqual([]);
     await hx.prisma.$disconnect();
   });
 });
@@ -277,7 +391,12 @@ describe("offline sync", () => {
       op(o),
       op(o, { action: "reopen", expectedVersion: 2 }),
     ]);
-    expect(res.body.data.map((r: { outcome: string }) => r.outcome)).toEqual(["rejected", "rejected", "accepted", "accepted"]);
+    expect(res.body.data.map((r: { outcome: string }) => r.outcome)).toEqual([
+      "rejected",
+      "rejected",
+      "accepted",
+      "accepted",
+    ]);
   });
   it("rejects another user's occurrence and leaves it unchanged", async () => {
     const [owner, other] = [await h.user(), await h.user()];
@@ -296,18 +415,29 @@ describe("offline sync", () => {
   it("limits batch size", async () => {
     const u = await h.user();
     const o = await occurrence(u);
-    expect((await batch(u, Array.from({ length: 101 }, () => op(o)))).status).toBe(422);
+    expect(
+      (
+        await batch(
+          u,
+          Array.from({ length: 101 }, () => op(o)),
+        )
+      ).status,
+    ).toBe(422);
   });
   it("returns only the caller's changes since the cursor", async () => {
     const [a, b] = [await h.user(), await h.user()];
     const o = await occurrence(a);
     await occurrence(b);
     const first = await a.get("/api/v1/sync/changes");
-    expect(first.body.data.occurrences.every((x: { userId: string }) => x.userId === a.id)).toBe(true);
+    expect(first.body.data.occurrences.every((x: { userId: string }) => x.userId === a.id)).toBe(
+      true,
+    );
     expect(first.body.data.planners).toHaveLength(1);
     await new Promise((r) => setTimeout(r, 20));
     await a.post(`/api/v1/occurrences/${o.id}/complete`);
-    const next = await a.get(`/api/v1/sync/changes?cursor=${encodeURIComponent(first.body.meta.nextCursor)}`);
+    const next = await a.get(
+      `/api/v1/sync/changes?cursor=${encodeURIComponent(first.body.meta.nextCursor)}`,
+    );
     expect(next.body.data.occurrences.map((x: { id: string }) => x.id)).toContain(o.id);
   });
 });
@@ -333,12 +463,25 @@ describe("account export and deletion", () => {
       const token = await h.sign({ email: "x@test.local" }, u.id, { iat });
       return { Authorization: `Bearer ${token}` };
     };
-    const stale = await request(h.app).post("/api/v1/me/export").set(await withIat(600)).send({});
+    const stale = await request(h.app)
+      .post("/api/v1/me/export")
+      .set(await withIat(600))
+      .send({});
     expect(stale.status).toBe(403);
     expect(stale.body.error.code).toBe("reauthentication_required");
-    const deletion = await request(h.app).post("/api/v1/me/deletion").set(await withIat(600)).send({ confirm: "DELETE" });
+    const deletion = await request(h.app)
+      .post("/api/v1/me/deletion")
+      .set(await withIat(600))
+      .send({ confirm: "DELETE" });
     expect(deletion.status).toBe(403);
-    expect((await request(h.app).post("/api/v1/me/export").set(await withIat(10)).send({})).status).toBe(202);
+    expect(
+      (
+        await request(h.app)
+          .post("/api/v1/me/export")
+          .set(await withIat(10))
+          .send({})
+      ).status,
+    ).toBe(202);
   });
   it("queues export and deletion through the outbox", async () => {
     const u = await h.user();
@@ -375,7 +518,9 @@ describe("admin", () => {
     await hx.prisma.profile.update({ where: { authUserId: u.id }, data: { role: "admin" } });
     expect((await u.get("/api/v1/admin/jobs/health")).body.error.code).toBe("mfa_required");
     const token = await hx.sign({ aal: "aal2", email: "a@test.local" }, u.id);
-    const ok = await request(hx.app).get("/api/v1/admin/jobs/health").set("Authorization", `Bearer ${token}`);
+    const ok = await request(hx.app)
+      .get("/api/v1/admin/jobs/health")
+      .set("Authorization", `Bearer ${token}`);
     expect(ok.status).toBe(200);
     await hx.prisma.$disconnect();
   });
@@ -388,11 +533,24 @@ describe("admin", () => {
     expect((await admin.post(url, { reason: "abuse" })).status).toBe(422);
     expect((await admin.post(url, { confirm: "REVOKE", reason: "abuse" })).status).toBe(204);
     expect((await target.get("/api/v1/me")).status).toBe(403);
-    const event = await h.prisma.auditEvent.findFirstOrThrow({ where: { action: "admin.revoke_access", entityId: target.id } });
+    const event = await h.prisma.auditEvent.findFirstOrThrow({
+      where: { action: "admin.revoke_access", entityId: target.id },
+    });
     expect(event.actorId).toBe(admin.id);
     const lookup = await admin.get(`/api/v1/admin/users?email=${target.id}@test.local`);
     expect(lookup.body.data).toHaveLength(1);
     expect(JSON.stringify(lookup.body)).not.toContain("Secret plan");
+  });
+});
+
+describe("feature flags", () => {
+  it("turns AI off without a deploy", async () => {
+    const hx = await createHarness({ env: { FEATURE_AI: "false" } });
+    const u = await hx.user();
+    const res = await u.post("/api/v1/ai/planner-drafts", { prompt: "plan my week please" });
+    expect(res.status).toBe(503);
+    expect(res.body.error.code).toBe("feature_disabled");
+    await hx.prisma.$disconnect();
   });
 });
 
@@ -411,16 +569,23 @@ describe("ownership of templates, AI drafts and account requests", () => {
   it("hides private templates and drafts from other users", async () => {
     const [owner, other] = [await h.user(), await h.user()];
     const t = (await owner.post("/api/v1/templates", { name: "Private", snapshot })).body.data;
-    const d = (await owner.post("/api/v1/ai/planner-drafts", { prompt: "my private plan" })).body.data;
+    const d = (await owner.post("/api/v1/ai/planner-drafts", { prompt: "my private plan" })).body
+      .data;
     const p = (await owner.post("/api/v1/planners", { name: "Mine" })).body.data;
-    expect((await other.get("/api/v1/templates")).body.data.map((x: { id: string }) => x.id)).not.toContain(t.id);
+    expect(
+      (await other.get("/api/v1/templates")).body.data.map((x: { id: string }) => x.id),
+    ).not.toContain(t.id);
     expect((await other.get(`/api/v1/templates/${t.id}`)).status).toBe(404);
     expect((await other.post(`/api/v1/templates/${t.id}/instantiate`, {})).status).toBe(404);
     expect((await other.post(`/api/v1/templates/${t.id}/versions`, { snapshot })).status).toBe(404);
-    expect((await other.post("/api/v1/templates", { name: "Steal", plannerId: p.id })).status).toBe(404);
+    expect((await other.post("/api/v1/templates", { name: "Steal", plannerId: p.id })).status).toBe(
+      404,
+    );
     expect((await other.get(`/api/v1/ai/planner-drafts/${d.id}`)).status).toBe(404);
     expect((await other.post(`/api/v1/ai/planner-drafts/${d.id}/apply`, {})).status).toBe(404);
-    expect((await other.post("/api/v1/ai/schedule-suggestions", { plannerId: p.id })).status).toBe(404);
+    expect((await other.post("/api/v1/ai/schedule-suggestions", { plannerId: p.id })).status).toBe(
+      404,
+    );
     expect((await other.get("/api/v1/me/requests")).body.data).toHaveLength(0);
     expect((await other.get("/api/v1/notifications")).body.data).toHaveLength(0);
   });
@@ -435,7 +600,9 @@ describe("ownership of templates, AI drafts and account requests", () => {
       },
     });
     expect((await u.post(`/api/v1/templates/${starter.id}/instantiate`, {})).status).toBe(201);
-    expect((await u.post(`/api/v1/templates/${starter.id}/versions`, { snapshot })).status).toBe(404);
+    expect((await u.post(`/api/v1/templates/${starter.id}/versions`, { snapshot })).status).toBe(
+      404,
+    );
     await h.prisma.template.delete({ where: { id: starter.id } });
   });
   it("keeps installed planners when the source template's owner deletes their account", async () => {

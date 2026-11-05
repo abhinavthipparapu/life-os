@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isEnabled } from "@lifeos/config/flags";
 import cors from "cors";
 import express, { Router } from "express";
 import helmet from "helmet";
@@ -22,6 +23,7 @@ import { syncRoutes } from "./modules/sync/routes.js";
 import { taskRoutes } from "./modules/tasks/routes.js";
 import { templateRoutes } from "./modules/templates/routes.js";
 import type { Deps } from "./shared/deps.js";
+import { AppError } from "./shared/http.js";
 
 export function createApp(deps: Deps) {
   const { env, prisma } = deps;
@@ -33,7 +35,9 @@ export function createApp(deps: Deps) {
   app.use(express.json({ limit: "256kb" }));
   // Echoed to the client, so a user's error report can be matched to server logs.
   app.use((req, res, next) => {
-    const id = /^[\w-]{8,64}$/.test(req.get("x-request-id") ?? "") ? req.get("x-request-id")! : randomUUID();
+    const id = /^[\w-]{8,64}$/.test(req.get("x-request-id") ?? "")
+      ? req.get("x-request-id")!
+      : randomUUID();
     res.setHeader("x-request-id", id);
     req.requestId = id;
     next();
@@ -92,7 +96,16 @@ export function createApp(deps: Deps) {
   v1.use("/notifications", notificationRoutes(deps));
   v1.use("/achievements", achievementRoutes(deps));
   v1.use("/templates", limiter("templates", 60, MINUTE, store), templateRoutes(deps));
-  v1.use("/ai", limiter("ai", 20, MINUTE, store), aiRoutes(deps));
+  v1.use(
+    "/ai",
+    limiter("ai", 20, MINUTE, store),
+    (_req, _res, next) => {
+      if (!isEnabled("FEATURE_AI", env))
+        throw new AppError(503, "feature_disabled", "AI is turned off right now");
+      next();
+    },
+    aiRoutes(deps),
+  );
   v1.use("/sync", limiter("sync", 120, MINUTE, store), syncRoutes(deps));
   v1.use("/push-subscriptions", pushRoutes(deps));
   app.use("/api/v1", v1);

@@ -25,7 +25,10 @@ export function GlobalSearch() {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, []);
-  const { data } = api.usePlannersQuery({ search: query, limit: 8 }, { skip: !open || query.length < 2 });
+  const { data } = api.usePlannersQuery(
+    { search: query, limit: 8 },
+    { skip: !open || query.length < 2 },
+  );
   const pages = NAV.filter((n) => query && n.label.toLowerCase().includes(query.toLowerCase()));
   const close = () => setOpen(false);
 
@@ -37,15 +40,35 @@ export function GlobalSearch() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent aria-describedby={undefined}>
           <DialogTitle>Search</DialogTitle>
-          <Input autoFocus aria-label="Search planners and pages" placeholder="Search planners and pages" value={text} onChange={(e) => setText(e.target.value)} />
+          <Input
+            autoFocus
+            aria-label="Search planners and pages"
+            placeholder="Search planners and pages"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
           <ul className="max-h-72 space-y-1 overflow-auto">
             {pages.map((p) => (
-              <li key={p.to}><Link onClick={close} className="block rounded-lg p-3 hover:bg-surface-2" to={p.to}>{p.label}</Link></li>
+              <li key={p.to}>
+                <Link onClick={close} className="block rounded-lg p-3 hover:bg-surface-2" to={p.to}>
+                  {p.label}
+                </Link>
+              </li>
             ))}
             {data?.items.map((p) => (
-              <li key={p.id}><Link onClick={close} className="block rounded-lg p-3 hover:bg-surface-2" to={`/app/planners/${p.id}`}>{p.name}</Link></li>
+              <li key={p.id}>
+                <Link
+                  onClick={close}
+                  className="block rounded-lg p-3 hover:bg-surface-2"
+                  to={`/app/planners/${p.id}`}
+                >
+                  {p.name}
+                </Link>
+              </li>
             ))}
-            {query.length >= 2 && !pages.length && data?.items.length === 0 && <li className="p-3 text-sm text-ink-muted">No results</li>}
+            {query.length >= 2 && !pages.length && data?.items.length === 0 && (
+              <li className="p-3 text-sm text-ink-muted">No results</li>
+            )}
           </ul>
         </DialogContent>
       </Dialog>

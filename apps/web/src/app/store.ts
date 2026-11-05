@@ -12,7 +12,10 @@ interface UiState {
   online: boolean;
   syncing: boolean;
   pendingCount: number;
-  conflicts: { clientOperationId: string; current: { id: string; status: string; version: number } }[];
+  conflicts: {
+    clientOperationId: string;
+    current: { id: string; status: string; version: number };
+  }[];
   celebration: Celebration | null;
 }
 

@@ -12,11 +12,22 @@ export async function scanRemindersJob(ctx: JobContext, now: Date = new Date()) 
   const occurrences = await prisma.taskOccurrence.findMany({
     where: {
       status: "pending",
-      scheduledAt: { gte: new Date(now.getTime() - WINDOW_MS), lte: new Date(now.getTime() + MAX_LEAD_MINUTES * MINUTE) },
-      task: { deletedAt: null, schedules: { some: { deletedAt: null, NOT: { reminderOffsets: { isEmpty: true } } } } },
+      scheduledAt: {
+        gte: new Date(now.getTime() - WINDOW_MS),
+        lte: new Date(now.getTime() + MAX_LEAD_MINUTES * MINUTE),
+      },
+      task: {
+        deletedAt: null,
+        schedules: { some: { deletedAt: null, NOT: { reminderOffsets: { isEmpty: true } } } },
+      },
     },
     include: {
-      task: { select: { title: true, schedules: { where: { deletedAt: null }, select: { slot: true, reminderOffsets: true } } } },
+      task: {
+        select: {
+          title: true,
+          schedules: { where: { deletedAt: null }, select: { slot: true, reminderOffsets: true } },
+        },
+      },
       user: { select: { timezone: true, preferences: true, pushSubscriptions: true } },
     },
     take: 1000,
@@ -30,7 +41,12 @@ export async function scanRemindersJob(ctx: JobContext, now: Date = new Date()) 
       if (due > now.getTime() || due < now.getTime() - WINDOW_MS) continue;
 
       const prefs = occurrence.user.preferences;
-      const quiet = applyQuietHours(now, occurrence.user.timezone, prefs?.quietHoursStart, prefs?.quietHoursEnd);
+      const quiet = applyQuietHours(
+        now,
+        occurrence.user.timezone,
+        prefs?.quietHoursStart,
+        prefs?.quietHoursEnd,
+      );
       const claimed = await claimDelivery(prisma, {
         userId: occurrence.userId,
         jobName: "reminder",
@@ -55,7 +71,8 @@ export async function scanRemindersJob(ctx: JobContext, now: Date = new Date()) 
       for (const target of occurrence.user.pushSubscriptions) {
         try {
           const result = await ctx.sendPush(target, message);
-          if (result === "gone") await prisma.pushSubscription.deleteMany({ where: { endpoint: target.endpoint } });
+          if (result === "gone")
+            await prisma.pushSubscription.deleteMany({ where: { endpoint: target.endpoint } });
         } catch (err) {
           ctx.log.error({ err, occurrenceId: occurrence.id }, "push delivery failed");
         }

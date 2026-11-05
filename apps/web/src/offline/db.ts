@@ -25,7 +25,11 @@ export type QueuedOperation = SyncOperation & { conflict?: boolean };
 
 interface LifeOsDb extends DBSchema {
   occurrences: { key: string; value: CachedOccurrence; indexes: { byDate: string } };
-  queue: { key: string; value: QueuedOperation & { queuedAt: number }; indexes: { byQueuedAt: number } };
+  queue: {
+    key: string;
+    value: QueuedOperation & { queuedAt: number };
+    indexes: { byQueuedAt: number };
+  };
   meta: { key: string; value: unknown };
 }
 
@@ -35,7 +39,10 @@ export function getDb() {
   connection ??= openDB<LifeOsDb>("lifeos", 1, {
     upgrade(db) {
       db.createObjectStore("occurrences", { keyPath: "id" }).createIndex("byDate", "date");
-      db.createObjectStore("queue", { keyPath: "clientOperationId" }).createIndex("byQueuedAt", "queuedAt");
+      db.createObjectStore("queue", { keyPath: "clientOperationId" }).createIndex(
+        "byQueuedAt",
+        "queuedAt",
+      );
       db.createObjectStore("meta");
     },
   });
@@ -46,5 +53,10 @@ export function getDb() {
 export async function wipeLocalData() {
   const db = await getDb();
   const tx = db.transaction(["occurrences", "queue", "meta"], "readwrite");
-  await Promise.all([tx.objectStore("occurrences").clear(), tx.objectStore("queue").clear(), tx.objectStore("meta").clear(), tx.done]);
+  await Promise.all([
+    tx.objectStore("occurrences").clear(),
+    tx.objectStore("queue").clear(),
+    tx.objectStore("meta").clear(),
+    tx.done,
+  ]);
 }
