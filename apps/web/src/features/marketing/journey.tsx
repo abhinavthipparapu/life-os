@@ -39,6 +39,13 @@ export const CHAPTERS = [
     alt: "Ticking off tasks on the Today page until the day is complete.",
   },
   {
+    clip: "voice",
+    moment: "Hands full?",
+    title: "You just say it",
+    text: "Tap the mic and speak your task. Your browser turns it into text, where voice is supported.",
+    alt: "Tapping the mic on the Today page, speaking a task, and adding it to the list.",
+  },
+  {
     clip: "offline",
     moment: "On the train",
     title: "Life doesn't wait for signal",

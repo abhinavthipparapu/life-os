@@ -416,7 +416,7 @@ function Features() {
         <Tile
           icon={PenLine}
           title="Start in seconds"
-          body="Use a ready-made template, then change anything you like."
+          body="Use a ready-made template, or just speak a task where your browser supports voice."
           className="md:col-span-2"
         />
       </ul>

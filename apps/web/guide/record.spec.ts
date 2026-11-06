@@ -146,6 +146,52 @@ test.describe("signed in", () => {
     await pause(page, 2200);
   });
 
+  test("voice", async ({ page }) => {
+    // Recordings have no microphone, so speech is simulated. The screens are the real app.
+    await page.addInitScript(() => {
+      class Fake {
+        onresult: ((e: unknown) => void) | null = null;
+        onend: (() => void) | null = null;
+        start() {
+          (window as unknown as { speech: Fake }).speech = this;
+        }
+        stop() {
+          this.onend?.();
+        }
+        abort() {
+          this.onend?.();
+        }
+        say(text: string) {
+          this.onresult?.({ resultIndex: 0, results: [[{ transcript: text }]] });
+        }
+      }
+      Object.defineProperty(window, "SpeechRecognition", { value: Fake, configurable: true });
+    });
+    await page.goto("/app/today");
+    await expect(page.getByRole("button", { name: "Speak a task" })).toBeVisible();
+    await pause(page, 500);
+    roll("voice");
+    await press(page, page.getByRole("button", { name: "Speak a task" }));
+    await expect(page.getByRole("heading", { name: "Use your voice" })).toBeVisible();
+    await pause(page, 1500);
+    await press(page, page.getByRole("button", { name: "Continue" }));
+    await pause(page, 500);
+    for (const words of ["Call", "Call the", "Call the bank", "Call the bank tomorrow"]) {
+      await page.evaluate(
+        (t) => (window as unknown as { speech: { say: (x: string) => void } }).speech.say(t),
+        words,
+      );
+      await pause(page, 380);
+    }
+    await page.evaluate(() =>
+      (window as unknown as { speech: { stop: () => void } }).speech.stop(),
+    );
+    await pause(page, 500);
+    await press(page, page.getByRole("button", { name: "Add", exact: true }));
+    await expect(page.getByRole("checkbox", { name: /Call the bank tomorrow/ })).toBeVisible();
+    await pause(page, 2200);
+  });
+
   test("build", async ({ page }) => {
     await page.goto("/app/planners/new");
     await expect(page.getByLabel("Name")).toBeVisible();

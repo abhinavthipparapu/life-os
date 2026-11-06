@@ -81,7 +81,7 @@ test("the landing page tells the story with real video, and respects reduced mot
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "How LifeOS works" }).getByRole("heading", { level: 3 }),
-  ).toHaveCount(7);
+  ).toHaveCount(8);
   await expectAccessible(page);
   expect(await overflows(), "page scrolls sideways").toBe(false);
 
