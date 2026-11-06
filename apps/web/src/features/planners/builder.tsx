@@ -25,6 +25,7 @@ import { api, messageOf, problemOf } from "@/app/api";
 import type { FieldDefinition, PlannerDetail, Section, TaskRow } from "@/app/types";
 import { EditableName, Field, NativeSelect } from "@/components/common/forms";
 import { ErrorState, PageHeader, PageSkeleton } from "@/components/common/states";
+import { VoiceInput } from "@/components/common/voice-input";
 import { localToday } from "@/lib/dates";
 import {
   buildTree,
@@ -508,6 +509,11 @@ export function SectionEditor({
           placeholder="Add a task"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+        />
+        <VoiceInput
+          value={title}
+          onChange={setTitle}
+          label={`Speak a task for ${section?.name ?? "this planner"}`}
         />
         <Button type="submit" variant="outline" disabled={isLoading || !title.trim()}>
           <Plus aria-hidden className="size-4" />

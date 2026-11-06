@@ -32,6 +32,11 @@ export function PrivacyPage() {
         you turn that on in Settings.
       </p>
       <p>
+        If you use voice to add a task, your browser turns your speech into text, and its provider,
+        such as Google or Apple, may process the audio. LifeOS receives only the resulting text and
+        never records or stores your voice.
+      </p>
+      <p>
         You can export your data or delete your account at any time from Settings. Deleting your
         account removes your login and your data.
       </p>

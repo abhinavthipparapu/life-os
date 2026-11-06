@@ -320,6 +320,103 @@ test("a new planner keeps its default colour, and a chosen one", async ({ page }
   await expect(page.getByLabel("Color")).toHaveValue("#7468e8");
 });
 
+test.describe("voice input", () => {
+  // Browsers have no real microphone in tests, so this stands in for the speech service.
+  const fakeSpeech = () => {
+    class Fake {
+      onresult: ((e: unknown) => void) | null = null;
+      onerror: ((e: unknown) => void) | null = null;
+      onend: (() => void) | null = null;
+      start() {
+        (window as unknown as { speech: Fake }).speech = this;
+      }
+      stop() {
+        this.onend?.();
+      }
+      abort() {
+        this.onend?.();
+      }
+      say(text: string) {
+        this.onresult?.({ resultIndex: 0, results: [[{ transcript: text }]] });
+      }
+      fail(error: string) {
+        this.onerror?.({ error });
+        this.onend?.();
+      }
+    }
+    Object.defineProperty(window, "SpeechRecognition", { value: Fake, configurable: true });
+    Object.defineProperty(window, "webkitSpeechRecognition", { value: Fake, configurable: true });
+  };
+  const say = (page: Page, text: string) =>
+    page.evaluate(
+      (t) =>
+        (
+          window as unknown as { speech: { say: (x: string) => void; stop: () => void } }
+        ).speech.say(t),
+      text,
+    );
+  const end = (page: Page) =>
+    page.evaluate(() => (window as unknown as { speech: { stop: () => void } }).speech.stop());
+
+  test("speaks a task into the planner and Today, with a one-time notice", async ({ page }) => {
+    await page.addInitScript(fakeSpeech);
+    await signUp(page);
+    await createPlannerWithTask(page, "Voice", "First task");
+    await page.getByRole("button", { name: "Speak a task for this planner" }).click();
+    await expect(page.getByRole("heading", { name: "Use your voice" })).toBeVisible();
+    await expectAccessible(page);
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("button", { name: "Stop listening" })).toBeVisible();
+    await say(page, "Call the bank");
+    const field = page.getByLabel("New task in planner");
+    await expect(field).toHaveValue("Call the bank");
+    await end(page);
+    await expect(page.getByRole("button", { name: "Speak a task for this planner" })).toBeVisible();
+    await page.getByRole("button", { name: "Add", exact: true }).first().click();
+    await expect(page.getByLabel("Task title").last()).toHaveValue("Call the bank");
+
+    await page.goto("/app/today");
+    const quick = page.getByLabel("New task for today");
+    await quick.fill("Buy");
+    await page.getByRole("button", { name: "Speak a task" }).click();
+    await expect(page.getByRole("heading", { name: "Use your voice" })).toHaveCount(0);
+    await say(page, "fresh milk");
+    await expect(quick).toHaveValue("Buy fresh milk");
+    await end(page);
+    await page.getByRole("button", { name: "Add" }).click();
+    await expect(page.getByRole("checkbox", { name: /Buy fresh milk/ })).toBeVisible();
+  });
+
+  test("explains a blocked microphone and leaves typing available", async ({ page }) => {
+    await page.addInitScript(fakeSpeech);
+    await page.addInitScript(() => localStorage.setItem("lifeos.voiceNoticeSeen", "true"));
+    await signUp(page);
+    await createPlannerWithTask(page, "Blocked", "Task");
+    await page.goto("/app/today");
+    await page.getByRole("button", { name: "Speak a task" }).click();
+    await page.evaluate(() =>
+      (window as unknown as { speech: { fail: (e: string) => void } }).speech.fail("not-allowed"),
+    );
+    await expect(page.getByText("Allow microphone access")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Speak a task" })).toBeVisible();
+    await page.getByLabel("New task for today").fill("Typed instead");
+    await expect(page.getByLabel("New task for today")).toHaveValue("Typed instead");
+  });
+
+  test("hides the mic where the browser has no speech support", async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(window, "webkitSpeechRecognition", {
+        value: undefined,
+        configurable: true,
+      });
+      Object.defineProperty(window, "SpeechRecognition", { value: undefined, configurable: true });
+    });
+    await signUp(page);
+    await createPlannerWithTask(page, "No voice", "Task");
+    await expect(page.getByRole("button", { name: /Speak a task/ })).toHaveCount(0);
+  });
+});
+
 test("template install gives an editable copy", async ({ page }) => {
   await signUp(page);
   await page.goto("/app/templates");

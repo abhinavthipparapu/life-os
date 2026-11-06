@@ -10,6 +10,7 @@ import { useAppSelector } from "@/app/store";
 import type { Occurrence } from "@/app/types";
 import { EmptyState, ErrorState, PageHeader, PageSkeleton } from "@/components/common/states";
 import { NativeSelect } from "@/components/common/forms";
+import { VoiceInput } from "@/components/common/voice-input";
 import { formatDate, localToday } from "@/lib/dates";
 import { pendingIds } from "@/offline/queue";
 import { useOccurrences } from "@/offline/use-sync";
@@ -46,6 +47,7 @@ export function QuickAdd({ today }: { today: string }) {
         onChange={(e) => setTitle(e.target.value)}
         className="min-w-48 flex-1"
       />
+      <VoiceInput value={title} onChange={setTitle} label="Speak a task" />
       {planners.length > 1 && (
         <NativeSelect
           aria-label="Planner"
