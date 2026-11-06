@@ -1,16 +1,8 @@
 import { Button } from "@lifeos/ui/components/button";
-import {
-  BarChart3,
-  Check,
-  CloudOff,
-  LayoutTemplate,
-  ListTree,
-  Pause,
-  Play,
-  Sparkles,
-} from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { BarChart3, Check, CloudOff, LayoutTemplate, ListTree, Sparkles } from "lucide-react";
+import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { Journey } from "./journey";
 
 const FEATURES = [
   {
@@ -49,93 +41,13 @@ function usePageMeta(title: string, description: string) {
   }, [title, description]);
 }
 
-const GUIDE = [
-  {
-    clip: "signup",
-    title: "Create your account",
-    text: "Sign up, confirm your email, and you're in. It takes about a minute.",
-    alt: "Filling in the signup form, seeing the verify email screen, then arriving at the home page.",
-  },
-  {
-    clip: "build",
-    title: "Build a planner your way",
-    text: "Add tasks, nest them, and schedule them for the days that suit you.",
-    alt: "Creating a planner, adding a task and scheduling it for Saturdays.",
-  },
-  {
-    clip: "template",
-    title: "Or start from a template",
-    text: "Preview a ready-made plan, then make it your own editable copy.",
-    alt: "Previewing the Career growth template and installing it as a planner.",
-  },
-  {
-    clip: "ai",
-    title: "Let AI draft a plan",
-    text: "Describe what you want. Nothing is created until you approve it. Example shown.",
-    alt: "Typing a request, reviewing a draft study plan, then approving it.",
-  },
-  {
-    clip: "today",
-    title: "Tick off your day",
-    text: "Everything due today in one place, with a small celebration when you finish.",
-    alt: "Ticking off tasks on the Today page until the day is complete.",
-  },
-  {
-    clip: "offline",
-    title: "Keep going offline",
-    text: "No signal? Tick things off anyway. Changes sync when you're back online.",
-    alt: "Completing a task while offline, then watching it sync on reconnecting.",
-  },
-  {
-    clip: "insights",
-    title: "See your real progress",
-    text: "Clear adherence numbers, a six-month activity view and your own dashboards.",
-    alt: "Scrolling through analytics charts and a personal dashboard.",
-  },
-];
-
-/** Moving images autoplay only if the visitor allows motion, and can always be paused. */
-function GuideClip({ clip, title, alt }: { clip: string; title: string; alt: string }) {
-  const [paused, setPaused] = useState(false);
-  return (
-    <div className="relative">
-      <picture>
-        {!paused && (
-          <source media="(prefers-reduced-motion: no-preference)" srcSet={`/guide/${clip}.gif`} />
-        )}
-        <img
-          src={`/guide/${clip}.png`}
-          alt={alt}
-          width={800}
-          height={500}
-          loading="lazy"
-          className="h-auto w-full rounded-xl border"
-        />
-      </picture>
-      <Button
-        variant="outline"
-        size="sm"
-        className="absolute right-2 bottom-2 bg-surface motion-reduce:hidden"
-        aria-label={`${paused ? "Play" : "Pause"} ${title}`}
-        onClick={() => setPaused(!paused)}
-      >
-        {paused ? (
-          <Play aria-hidden className="size-4" />
-        ) : (
-          <Pause aria-hidden className="size-4" />
-        )}
-      </Button>
-    </div>
-  );
-}
-
 export function LandingPage() {
   usePageMeta(
     "LifeOS: plan your life your way",
     "Build your own planners, track what matters and see real progress. Works offline.",
   );
   return (
-    <div className="mx-auto max-w-5xl px-4">
+    <div className="mx-auto max-w-6xl px-4">
       <header className="flex h-16 items-center justify-between">
         <span className="flex items-center gap-2 font-semibold">
           <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
@@ -164,6 +76,7 @@ export function LandingPage() {
             <Link to="/signup">Create your free account</Link>
           </Button>
         </section>
+        <Journey />
         <section aria-label="Features" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map(({ icon: Icon, title, body }) => (
             <div key={title} className="card-surface p-5">
@@ -172,24 +85,6 @@ export function LandingPage() {
               <p className="mt-1 text-sm text-ink-muted">{body}</p>
             </div>
           ))}
-        </section>
-        <section aria-labelledby="how-it-works" className="pt-16">
-          <h2 id="how-it-works" className="text-center text-2xl font-semibold">
-            See how it works
-          </h2>
-          <ol className="mt-8 grid gap-6 md:grid-cols-2">
-            {GUIDE.map((step, i) => (
-              <li key={step.clip} className="card-surface flex flex-col gap-3 p-4">
-                <GuideClip clip={step.clip} title={step.title} alt={step.alt} />
-                <div>
-                  <h3 className="font-semibold">
-                    {i + 1}. {step.title}
-                  </h3>
-                  <p className="mt-1 text-sm text-ink-muted">{step.text}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
         </section>
         <section className="py-16 text-center">
           <h2 className="text-2xl font-semibold">Start from an example</h2>

@@ -22,38 +22,62 @@ test("public pages load and protected pages redirect", async ({ page }) => {
   await expectAccessible(page);
 });
 
-test("landing page guide plays, pauses, and respects reduced motion", async ({ page, browser }) => {
+test("the landing page tells the journey, and respects reduced motion", async ({
+  page,
+  browser,
+  isMobile,
+}) => {
   await page.goto("/");
-  const clips = page.getByRole("region", { name: "See how it works" }).getByRole("img");
-  await expect(clips).toHaveCount(7);
-  const first = clips.first();
-  await first.scrollIntoViewIfNeeded();
-  await expect
-    .poll(() => first.evaluate((el: HTMLImageElement) => el.currentSrc))
-    .toContain("signup.gif");
-  await expect
-    .poll(() => first.evaluate((el: HTMLImageElement) => el.naturalWidth))
-    .toBeGreaterThan(0);
+  const story = page.getByRole("region", { name: "See how it fits into your life" });
+  await expect(story.getByRole("heading", { level: 3 })).toHaveCount(8);
+  const src = (image: ReturnType<typeof story.getByRole>) =>
+    image.evaluate((el: HTMLImageElement) => el.currentSrc);
+
+  if (isMobile) {
+    await expect(story.getByRole("img")).toHaveCount(7);
+    const last = story.getByRole("img").last();
+    await last.scrollIntoViewIfNeeded();
+    await expect.poll(() => src(last)).toContain("insights.gif");
+  } else {
+    const window = story.getByRole("img");
+    await expect(window).toHaveCount(1);
+    await expect.poll(() => src(window)).toContain("signup.gif");
+    await story
+      .getByRole("heading", { name: "You show up, one tick at a time" })
+      .scrollIntoViewIfNeeded();
+    await page.mouse.wheel(0, 120);
+    await expect.poll(() => src(story.getByRole("img"))).toContain("today.gif");
+    await expect(
+      story
+        .getByRole("status")
+        .or(story.getByText(/5 of 7/))
+        .first(),
+    ).toBeVisible();
+    await expect(window).toBeInViewport();
+  }
   await expectAccessible(page);
 
-  await page.getByRole("button", { name: "Pause Create your account" }).click();
-  await expect
-    .poll(() => first.evaluate((el: HTMLImageElement) => el.currentSrc))
-    .toContain("signup.png");
-  await page.getByRole("button", { name: "Play Create your account" }).click();
-  await expect
-    .poll(() => first.evaluate((el: HTMLImageElement) => el.currentSrc))
-    .toContain("signup.gif");
+  const pause = story.getByRole("button", { name: /^Pause/ }).first();
+  await pause.scrollIntoViewIfNeeded();
+  await pause.click();
+  await expect.poll(() => src(story.getByRole("img").first())).toContain(".png");
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(overflow, "page scrolls sideways").toBe(false);
+  await story.getByRole("link", { name: "Start yours today" }).click();
+  await expect(page).toHaveURL(/\/signup/);
 
   const calm = await browser.newContext({ reducedMotion: "reduce" });
-  const still = await calm.newPage();
-  await still.goto("http://localhost:5173/");
-  const image = still.getByRole("region", { name: "See how it works" }).getByRole("img").first();
+  const quiet = await calm.newPage();
+  await quiet.goto("http://localhost:5173/");
+  const image = quiet
+    .getByRole("region", { name: "See how it fits into your life" })
+    .getByRole("img")
+    .first();
   await image.scrollIntoViewIfNeeded();
-  await expect
-    .poll(() => image.evaluate((el: HTMLImageElement) => el.currentSrc))
-    .toContain("signup.png");
-  await expect(still.getByRole("button", { name: "Pause Create your account" })).toBeHidden();
+  await expect.poll(() => src(image)).toContain(".png");
   await calm.close();
 });
 
