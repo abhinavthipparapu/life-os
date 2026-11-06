@@ -56,6 +56,7 @@ export const router = createBrowserRouter([
     HydrateFallback: () => null,
     children: [
       { path: "/", ...page(marketing, "LandingPage") },
+      { path: "/how-it-works", ...page(marketing, "HowItWorksPage") },
       { path: "/privacy", ...page(marketing, "PrivacyPage") },
       { path: "/terms", ...page(marketing, "TermsPage") },
       { path: "/verify-email", ...page(auth, "VerifyEmailPage") },

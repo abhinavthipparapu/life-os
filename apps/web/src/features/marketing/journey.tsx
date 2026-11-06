@@ -1,10 +1,8 @@
-import { Button } from "@lifeos/ui/components/button";
-import { ArrowRight, Pause, Play } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion, useScroll } from "motion/react";
-import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useRef, useState } from "react";
+import { ProductClip } from "./clip";
 
-const CHAPTERS = [
+export const CHAPTERS = [
   {
     clip: "signup",
     moment: "Day one",
@@ -56,73 +54,31 @@ const CHAPTERS = [
   },
 ];
 
-type Chapter = (typeof CHAPTERS)[number];
-
-/** Moving images autoplay only if the visitor allows motion, and can always be paused. */
-function AppWindow({ chapter, eager = false }: { chapter: Chapter; eager?: boolean }) {
-  const [paused, setPaused] = useState(false);
-  return (
-    <div className="overflow-hidden rounded-2xl border bg-surface shadow-e3">
-      <div className="flex items-center gap-1.5 border-b bg-surface-2 py-0.5 pr-1 pl-3">
-        <span aria-hidden className="size-2.5 rounded-full bg-line" />
-        <span aria-hidden className="size-2.5 rounded-full bg-line" />
-        <span aria-hidden className="size-2.5 rounded-full bg-line" />
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="ml-auto motion-reduce:invisible"
-          aria-label={`${paused ? "Play" : "Pause"} ${chapter.title}`}
-          onClick={() => setPaused(!paused)}
-        >
-          {paused ? (
-            <Play aria-hidden className="size-4" />
-          ) : (
-            <Pause aria-hidden className="size-4" />
-          )}
-        </Button>
-      </div>
-      <picture>
-        {!paused && (
-          <source
-            media="(prefers-reduced-motion: no-preference)"
-            srcSet={`/guide/${chapter.clip}.gif`}
-          />
-        )}
-        <img
-          src={`/guide/${chapter.clip}.png`}
-          alt={chapter.alt}
-          width={800}
-          height={500}
-          loading={eager ? "eager" : "lazy"}
-          className="h-auto w-full bg-cover"
-          style={{ backgroundImage: `url(/guide/${chapter.clip}.png)` }}
-        />
-      </picture>
-    </div>
-  );
-}
+export type Chapter = (typeof CHAPTERS)[number];
 
 /** One app window stays in view while the story scrolls past it. */
-export function Journey() {
+export function Journey({
+  chapters,
+  title,
+  subtitle,
+}: {
+  chapters: Chapter[];
+  title: string;
+  subtitle: string;
+}) {
   const [active, setActive] = useState(0);
   const story = useRef<HTMLOListElement>(null);
   const still = useReducedMotion();
   const { scrollYProgress } = useScroll({ target: story, offset: ["start center", "end center"] });
-  const current = CHAPTERS[active]!;
-
-  // Fetches the next clip early, so it plays the moment its chapter arrives.
-  useEffect(() => {
-    const next = CHAPTERS[active + 1];
-    if (next && !still) new Image().src = `/guide/${next.clip}.gif`;
-  }, [active, still]);
+  const current = chapters[active]!;
 
   return (
     <section aria-labelledby="journey" className="pt-8 pb-16">
       <div className="mx-auto max-w-xl text-center">
         <h2 id="journey" className="text-3xl font-semibold tracking-tight">
-          See how it fits into your life
+          {title}
         </h2>
-        <p className="mt-2 text-ink-muted">One person, one plan, a few weeks of showing up.</p>
+        <p className="mt-2 text-ink-muted">{subtitle}</p>
       </div>
 
       <div className="mt-10 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,8fr)] lg:gap-12">
@@ -136,7 +92,7 @@ export function Journey() {
               style={{ scaleY: still ? 1 : scrollYProgress }}
             />
           </div>
-          {CHAPTERS.map((chapter, i) => (
+          {chapters.map((chapter, i) => (
             <motion.li
               key={chapter.clip}
               className="relative flex flex-col justify-center pb-12 pl-8 lg:min-h-[70vh] lg:pb-0"
@@ -160,7 +116,7 @@ export function Journey() {
                 <p className="mt-2 text-ink-muted">{chapter.text}</p>
               </motion.div>
               <div className="mt-4 lg:hidden">
-                <AppWindow chapter={chapter} />
+                <ProductClip clip={chapter.clip} title={chapter.title} alt={chapter.alt} />
               </div>
             </motion.li>
           ))}
@@ -175,24 +131,14 @@ export function Journey() {
                 exit={still ? undefined : { opacity: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                <AppWindow chapter={current} eager />
+                <ProductClip clip={current.clip} title={current.title} alt={current.alt} eager />
               </motion.div>
             </AnimatePresence>
             <p className="mt-3 text-center text-sm text-ink-muted" aria-live="polite">
-              {active + 1} of {CHAPTERS.length}: {current.title}
+              {active + 1} of {chapters.length}: {current.title}
             </p>
           </div>
         </div>
-      </div>
-
-      <div className="mt-12 text-center lg:mt-20">
-        <h3 className="text-2xl font-semibold tracking-tight">Your journey starts with one tick</h3>
-        <Button size="lg" className="mt-4" asChild>
-          <Link to="/signup">
-            Start yours today
-            <ArrowRight aria-hidden className="size-4" />
-          </Link>
-        </Button>
       </div>
     </section>
   );

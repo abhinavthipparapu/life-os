@@ -109,11 +109,29 @@ test.describe("new visitor", () => {
 test.describe("signed in", () => {
   test.use({ storageState: STATE });
 
+  test("today", async ({ page }) => {
+    await page.goto("/app/today");
+    await expect(page.getByRole("checkbox", { name: /Read/ })).toBeVisible();
+    await pause(page, 500);
+    roll("today");
+    await press(page, page.getByRole("checkbox", { name: /Stretch/ }));
+    await pause(page, 900);
+    await press(page, page.getByRole("checkbox", { name: /Read/ }));
+    await pause(page, 900);
+    await press(page, page.getByRole("checkbox", { name: /Drink/ }));
+    await expect(page.getByText("Everything done for today")).toBeVisible();
+    await pause(page, 3000);
+  });
+
   test("offline", async ({ page, context }) => {
     await page.goto("/app/today");
     const box = page.getByRole("checkbox", { name: /Stretch/ });
-    await expect(box).toBeVisible();
-    await pause(page, 500);
+    await expect(box).toHaveAttribute("aria-checked", "true");
+    // Reopened before the clip starts, because the Today clip finished the whole list.
+    await box.click();
+    await expect(box).toHaveAttribute("aria-checked", "false");
+    await expect(page.getByRole("button", { name: /Sync status: Synced/ })).toBeVisible();
+    await pause(page, 900);
     roll("offline");
     await context.setOffline(true);
     await expect(page.getByRole("button", { name: /Sync status: Offline/ })).toBeVisible();
@@ -126,18 +144,6 @@ test.describe("signed in", () => {
       timeout: 15_000,
     });
     await pause(page, 2200);
-  });
-
-  test("today", async ({ page }) => {
-    await page.goto("/app/today");
-    await expect(page.getByRole("checkbox", { name: /Read/ })).toBeVisible();
-    await pause(page, 500);
-    roll("today");
-    await press(page, page.getByRole("checkbox", { name: /Read/ }));
-    await pause(page, 1000);
-    await press(page, page.getByRole("checkbox", { name: /Drink/ }));
-    await expect(page.getByText("Everything done for today")).toBeVisible();
-    await pause(page, 2600);
   });
 
   test("build", async ({ page }) => {

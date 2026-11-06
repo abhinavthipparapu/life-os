@@ -260,7 +260,7 @@ async function createDemoUsers() {
     let id = created.ok ? ((await created.json()) as { id: string }).id : null;
     if (!id) {
       const list = (await (
-        await fetch(`${url}/auth/v1/admin/users?per_page=1000`, { headers })
+        await fetch(`${url}/auth/v1/admin/users?filter=${encodeURIComponent(email)}`, { headers })
       ).json()) as { users: { id: string; email: string }[] };
       id = list.users.find((u) => u.email === email)?.id ?? null;
     }

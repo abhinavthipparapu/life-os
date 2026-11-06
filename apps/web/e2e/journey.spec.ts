@@ -15,69 +15,81 @@ import {
 
 test("public pages load and protected pages redirect", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("A planner shaped");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Plan your life your way");
   await expectAccessible(page);
   await page.goto("/app/today");
   await expect(page).toHaveURL(/\/login/);
   await expectAccessible(page);
 });
 
-test("the landing page tells the journey, and respects reduced motion", async ({
+test("visitors can try ticking a list on the landing page without signing up", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "Try it first" }).click();
+  const demo = page.getByRole("region", { name: "Go on, tick something off" });
+  const boxes = demo.getByRole("checkbox");
+  await expect(boxes).toHaveCount(3);
+  for (let i = 0; i < 3; i += 1) await boxes.nth(i).click();
+  await expect(demo.getByText("3 of 3 done")).toBeVisible();
+  await expect(demo.getByText("That's a perfect day")).toBeVisible();
+  await expectAccessible(page);
+  await demo.getByRole("button", { name: "Start the list again" }).click();
+  await expect(demo.getByText("0 of 3 done")).toBeVisible();
+  await boxes.first().click();
+  await boxes.first().click();
+  await expect(boxes.first()).toHaveAttribute("aria-checked", "false");
+});
+
+test("the landing page tells the story with real video, and respects reduced motion", async ({
   page,
   browser,
   isMobile,
 }) => {
+  const overflows = () =>
+    page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
   await page.goto("/");
-  const story = page.getByRole("region", { name: "See how it fits into your life" });
-  await expect(story.getByRole("heading", { level: 3 })).toHaveCount(8);
-  const src = (image: ReturnType<typeof story.getByRole>) =>
-    image.evaluate((el: HTMLImageElement) => el.currentSrc);
+  const hero = page.locator("video").first();
+  await expect(hero).toHaveAttribute("src", "/guide/today.mp4");
+  await expect.poll(() => hero.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeGreaterThan(0);
 
-  if (isMobile) {
-    await expect(story.getByRole("img")).toHaveCount(7);
-    const last = story.getByRole("img").last();
-    await last.scrollIntoViewIfNeeded();
-    await expect.poll(() => src(last)).toContain("insights.gif");
-  } else {
-    const window = story.getByRole("img");
-    await expect(window).toHaveCount(1);
-    await expect.poll(() => src(window)).toContain("signup.gif");
+  const story = page.getByRole("region", { name: "See how it fits into your life" });
+  await expect(story.getByRole("heading", { level: 3 })).toHaveCount(4);
+  if (!isMobile) {
     await story
-      .getByRole("heading", { name: "You show up, one tick at a time" })
+      .getByRole("heading", { name: "Life doesn't wait for signal" })
       .scrollIntoViewIfNeeded();
     await page.mouse.wheel(0, 120);
-    await expect.poll(() => src(story.getByRole("img"))).toContain("today.gif");
-    await expect(
-      story
-        .getByRole("status")
-        .or(story.getByText(/5 of 7/))
-        .first(),
-    ).toBeVisible();
-    await expect(window).toBeInViewport();
+    await expect(story.locator("video:visible")).toHaveAttribute("src", "/guide/offline.mp4");
+    await expect(story.getByText(/3 of 4/)).toBeVisible();
+  } else {
+    await expect(story.locator("video:visible")).toHaveCount(4);
   }
+
+  await page.getByRole("button", { name: "Pause Today page" }).click();
+  await expect.poll(() => hero.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
+  await page.getByRole("button", { name: "Play Today page" }).click();
+  await expect.poll(() => hero.evaluate((v: HTMLVideoElement) => v.paused)).toBe(false);
+  expect(await overflows(), "page scrolls sideways").toBe(false);
+
+  await page.goto("/how-it-works");
+  await expect(
+    page
+      .getByRole("heading", { level: 1 })
+      .or(page.getByRole("heading", { name: "How LifeOS works" }))
+      .first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "How LifeOS works" }).getByRole("heading", { level: 3 }),
+  ).toHaveCount(7);
   await expectAccessible(page);
-
-  const pause = story.getByRole("button", { name: /^Pause/ }).first();
-  await pause.scrollIntoViewIfNeeded();
-  await pause.click();
-  await expect.poll(() => src(story.getByRole("img").first())).toContain(".png");
-
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
-  );
-  expect(overflow, "page scrolls sideways").toBe(false);
-  await story.getByRole("link", { name: "Start yours today" }).click();
-  await expect(page).toHaveURL(/\/signup/);
+  expect(await overflows(), "page scrolls sideways").toBe(false);
 
   const calm = await browser.newContext({ reducedMotion: "reduce" });
   const quiet = await calm.newPage();
   await quiet.goto("http://localhost:5173/");
-  const image = quiet
-    .getByRole("region", { name: "See how it fits into your life" })
-    .getByRole("img")
-    .first();
-  await image.scrollIntoViewIfNeeded();
-  await expect.poll(() => src(image)).toContain(".png");
+  await expect(quiet.getByRole("img", { name: /Ticking off every task/ })).toBeVisible();
+  await expect(quiet.locator("video")).toHaveCount(0);
   await calm.close();
 });
 

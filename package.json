@@ -24,7 +24,7 @@
     "db:seed": "prisma db seed",
     "check:deps": "node infra/scripts/check-deps.mjs",
     "check": "pnpm check:deps && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build",
-    "guide:record": "sh infra/scripts/make-guide-gifs.sh"
+    "guide:record": "sh infra/scripts/make-guide-videos.sh"
   },
   "devDependencies": {
     "prisma": "7.10.1",
