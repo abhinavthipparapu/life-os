@@ -17,3 +17,29 @@ export function CompletionPulse({ active, children }: { active: boolean; childre
 export function haptic() {
   if ("vibrate" in navigator) navigator.vibrate(10);
 }
+
+/**
+ * Draws a line across the text from left to right as it fades. The line animates transform and the
+ * text animates opacity, so they never compete, and reduced motion makes both instant.
+ */
+export function StrikeText({ done, children }: { done: boolean; children: ReactNode }) {
+  return (
+    <span className="relative inline-block max-w-full truncate align-bottom">
+      <motion.span
+        initial={false}
+        animate={{ opacity: done ? 0.7 : 1 }}
+        transition={{ duration: 0.25 }}
+      >
+        {children}
+      </motion.span>
+      <motion.span
+        aria-hidden
+        data-testid="strike-line"
+        className="absolute inset-x-0 top-1/2 h-0.5 origin-left rounded-full bg-current"
+        initial={false}
+        animate={{ scaleX: done ? 1 : 0 }}
+        transition={{ duration: 0.28, ease: "easeOut" }}
+      />
+    </span>
+  );
+}

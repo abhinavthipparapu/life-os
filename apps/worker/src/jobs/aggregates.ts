@@ -7,8 +7,16 @@ const LOOKBACK_DAYS = 7;
 /** Nightly check that incremental aggregates still match the source data. Repairs and counts drift. */
 export async function reconcileAggregatesJob({ prisma, log }: JobContext, now: Date = new Date()) {
   let drift = 0;
+  // Only recently active users can have drifted, so the cost follows activity, not total signups.
+  const since = new Date(now.getTime() - (LOOKBACK_DAYS + 1) * 86_400_000);
   const profiles = await prisma.profile.findMany({
-    where: { deletedAt: null },
+    where: {
+      deletedAt: null,
+      OR: [
+        { occurrences: { some: { updatedAt: { gte: since } } } },
+        { metricLogs: { some: { updatedAt: { gte: since } } } },
+      ],
+    },
     select: { authUserId: true, timezone: true },
   });
   for (const { authUserId: userId, timezone } of profiles) {

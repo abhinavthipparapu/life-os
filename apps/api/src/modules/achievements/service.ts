@@ -53,7 +53,16 @@ export async function evaluateMilestones(
   const remaining = await tx.taskOccurrence.count({
     where: { userId, status: "pending", task: { plannerId, deletedAt: null } },
   });
-  if (remaining === 0) {
+  // Every task needs an outcome, so ticking one task in a mostly unscheduled planner is not "done".
+  const untouched = await tx.task.count({
+    where: {
+      userId,
+      plannerId,
+      deletedAt: null,
+      occurrences: { none: { status: { in: ["completed", "skipped", "rest"] } } },
+    },
+  });
+  if (remaining === 0 && untouched === 0) {
     const { count } = await tx.planner.updateMany({
       where: { id: plannerId, userId, completedAt: null },
       data: { completedAt: new Date() },

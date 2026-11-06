@@ -108,8 +108,42 @@ const scheduleData = (input: ScheduleInput, timezone: string) => ({
   reminderOffsets: input.reminderOffsets,
 });
 
+const occurrenceTask = {
+  select: {
+    id: true,
+    title: true,
+    type: true,
+    targetValue: true,
+    targetUnit: true,
+    plannerId: true,
+    planner: { select: { name: true, color: true } },
+  },
+};
+
 export function taskService(prisma: PrismaClient) {
   return {
+    /** Gives an unscheduled task something to tick today. Repeat calls return the same row. */
+    ensureTodayOccurrence: (userId: string, id: string) =>
+      prisma.$transaction(async (tx) => {
+        const task = await ownedTask(tx, userId, id);
+        const planner = await ownedPlanner(tx, userId, task.plannerId);
+        const date = toDate(localDateOf(new Date(), planner.timezone));
+        const scheduled = await tx.taskSchedule.count({ where: { taskId: id, deletedAt: null } });
+        const find = () =>
+          tx.taskOccurrence.findFirst({
+            where: { userId, taskId: id, date },
+            include: { task: occurrenceTask },
+          });
+        const existing = await find();
+        if (existing) return existing;
+        if (scheduled > 0) throw badRequest("This task is not due today", "not_due_today");
+        await tx.taskOccurrence.createMany({
+          data: [{ userId, taskId: id, slotKey: "manual", date }],
+          skipDuplicates: true,
+        });
+        return find();
+      }),
+
     async getTask(userId: string, id: string) {
       const task = await prisma.task.findFirst({
         where: { id, userId, deletedAt: null },

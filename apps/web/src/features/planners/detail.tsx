@@ -1,20 +1,75 @@
 import { Button } from "@lifeos/ui/components/button";
 import { ChevronDown, ChevronRight, ListPlus, Pencil, Save } from "lucide-react";
-import { useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api, messageOf } from "@/app/api";
-import type { PlannerDetail } from "@/app/types";
+import type { Occurrence, PlannerDetail, TaskRow } from "@/app/types";
 import { EmptyState, ErrorState, PageHeader, PageSkeleton } from "@/components/common/states";
+import { haptic, StrikeText } from "@/components/experience/completion-pulse";
+import { TaskCompletionControl } from "@/features/today/occurrence-card";
+import { browserTimezone, localToday } from "@/lib/dates";
+import type { CachedOccurrence } from "@/offline/db";
+import { cacheOccurrences } from "@/offline/queue";
+import { actOnOccurrence, useOccurrences } from "@/offline/use-sync";
 import { buildTree, describeRule, type TreeNode } from "./tree";
+
+const TodayContext = createContext<Map<string, Occurrence>>(new Map());
+
+/** Ticks the task for today. An unscheduled task gets its entry from the server on first tick. */
+function TaskCheck({ task }: { task: TaskRow }) {
+  const occurrence = useContext(TodayContext).get(task.id);
+  const [ensure, { isLoading }] = api.useEnsureTodayOccurrenceMutation();
+  if (occurrence) {
+    if (occurrence.status === "pending" || occurrence.status === "completed") {
+      return <TaskCompletionControl occurrence={occurrence} />;
+    }
+    return (
+      <span className="w-11 text-center text-xs capitalize text-ink-muted">
+        {occurrence.status}
+      </span>
+    );
+  }
+  if (task.schedules.length > 0) {
+    return (
+      <span className="w-11 text-center text-xs leading-tight text-ink-muted">Not due today</span>
+    );
+  }
+  const tick = async () => {
+    try {
+      const row = await ensure(task.id).unwrap();
+      await cacheOccurrences([row as CachedOccurrence]);
+      haptic();
+      await actOnOccurrence(row, "complete");
+    } catch (err) {
+      toast.error(
+        (err as { status?: number }).status === 0
+          ? "Ticking this task needs a connection"
+          : messageOf(err),
+      );
+    }
+  };
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={false}
+      aria-label={`${task.title}: not done`}
+      disabled={isLoading}
+      onClick={() => void tick()}
+      className="tactile size-11 shrink-0 rounded-full border-2 border-input bg-surface"
+    />
+  );
+}
 
 export function TaskRowView({ node, depth }: { node: TreeNode; depth: number }) {
   const [open, setOpen] = useState(true);
   const { task, children } = node;
+  const done = useContext(TodayContext).get(task.id)?.status === "completed";
   return (
     <li>
       <div
-        className="flex min-h-11 items-center gap-1 rounded-lg px-1 hover:bg-surface-2"
+        className="flex min-h-11 items-center gap-1 rounded-lg px-1 py-1 hover:bg-surface-2"
         style={{ paddingLeft: depth * 16 }}
       >
         {children.length > 0 ? (
@@ -34,11 +89,12 @@ export function TaskRowView({ node, depth }: { node: TreeNode; depth: number }) 
         ) : (
           <span className="w-3" />
         )}
+        <TaskCheck task={task} />
         <Link
           to={`/app/tasks/${task.id}`}
-          className="min-w-0 flex-1 truncate text-sm font-medium hover:underline"
+          className="ml-2 min-w-0 flex-1 truncate text-sm font-medium hover:underline"
         >
-          {task.title}
+          <StrikeText done={done}>{task.title}</StrikeText>
         </Link>
         <span className="hidden shrink-0 text-xs text-ink-muted sm:inline">
           {describeRule(task.schedules[0]?.rrule)}
@@ -89,6 +145,10 @@ function TaskTree({ planner }: { planner: PlannerDetail }) {
 export function PlannerPage() {
   const { id = "" } = useParams();
   const { data, isLoading, error, refetch } = api.usePlannerQuery(id);
+  const { data: me } = api.useMeQuery();
+  const today = localToday(me?.timezone ?? browserTimezone());
+  const { rows } = useOccurrences(today, today, id);
+  const todayByTask = useMemo(() => new Map(rows?.map((o) => [o.task.id, o])), [rows]);
   const [saveTemplate, { isLoading: saving }] = api.useCreateTemplateMutation();
   const asTemplate = async () => {
     try {
@@ -136,7 +196,9 @@ export function PlannerPage() {
           }
         />
       ) : (
-        <TaskTree planner={data} />
+        <TodayContext.Provider value={todayByTask}>
+          <TaskTree planner={data} />
+        </TodayContext.Provider>
       )}
     </>
   );

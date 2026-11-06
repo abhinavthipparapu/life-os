@@ -115,6 +115,62 @@ describe("occurrence lifecycle", () => {
   });
 });
 
+describe("ticking a task from the planner", () => {
+  const unscheduled = async (u: U, titles: string[]) => {
+    const p = (await u.post("/api/v1/planners", { name: "Loose", timezone: "UTC" })).body.data;
+    const tasks = [];
+    for (const title of titles)
+      tasks.push((await u.post(`/api/v1/planners/${p.id}/tasks`, { title })).body.data);
+    return { planner: p, tasks };
+  };
+
+  it("creates one occurrence for an unscheduled task, however often it is asked", async () => {
+    const u = await h.user();
+    const { tasks } = await unscheduled(u, ["Call the bank"]);
+    const results = await Promise.all(
+      [1, 2, 3].map(() => u.post(`/api/v1/tasks/${tasks[0].id}/today`)),
+    );
+    expect(results.map((r) => r.status)).toEqual([200, 200, 200]);
+    expect(new Set(results.map((r) => r.body.data.id)).size).toBe(1);
+    expect(results[0]!.body.data.task.planner.name).toBe("Loose");
+    expect(await h.prisma.taskOccurrence.count({ where: { taskId: tasks[0].id } })).toBe(1);
+  });
+  it("returns today's scheduled occurrence instead of adding a second one", async () => {
+    const u = await h.user();
+    const { task: t, occurrence: o } = await dailyTask(u);
+    expect((await u.post(`/api/v1/tasks/${t.id}/today`)).body.data.id).toBe(o.id);
+  });
+  it("refuses a repeating task that is not due today, so stats stay honest", async () => {
+    const u = await h.user();
+    const p = (await u.post("/api/v1/planners", { name: "Later", timezone: "UTC" })).body.data;
+    const t = (
+      await u.post(`/api/v1/planners/${p.id}/tasks`, {
+        title: "Next week",
+        schedule: { rrule: "FREQ=DAILY", startsOn: shift(7) },
+      })
+    ).body.data;
+    const res = await u.post(`/api/v1/tasks/${t.id}/today`);
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("not_due_today");
+  });
+  it("celebrates a planner only once every task has an outcome", async () => {
+    const u = await h.user();
+    const { planner: p, tasks } = await unscheduled(u, ["One", "Two"]);
+    const tick = async (id: string) => {
+      const o = (await u.post(`/api/v1/tasks/${id}/today`)).body.data;
+      return (await u.post(`/api/v1/occurrences/${o.id}/complete`)).body.meta.celebration;
+    };
+    expect((await tick(tasks[0].id)).plannerCompleted).toBeNull();
+    expect((await tick(tasks[1].id)).plannerCompleted.id).toBe(p.id);
+  });
+  it("hides this route from other users", async () => {
+    const [owner, other] = [await h.user(), await h.user()];
+    const { tasks } = await unscheduled(owner, ["Mine"]);
+    expect((await other.post(`/api/v1/tasks/${tasks[0].id}/today`)).status).toBe(404);
+    expect(await h.prisma.taskOccurrence.count({ where: { taskId: tasks[0].id } })).toBe(0);
+  });
+});
+
 describe("metrics and goals", () => {
   const metric = async (u: U, kind = "quantity", key = "water") =>
     (await u.post("/api/v1/metrics", { key, label: "Water", kind, unit: "ml" })).body.data;

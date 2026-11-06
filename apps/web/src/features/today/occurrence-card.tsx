@@ -2,11 +2,12 @@ import { Button } from "@lifeos/ui/components/button";
 import { Input } from "@lifeos/ui/components/input";
 import { cn } from "@lifeos/ui/lib/utils";
 import { Check, Moon, SkipForward, Undo2 } from "lucide-react";
+import { motion } from "motion/react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import type { Occurrence } from "@/app/types";
-import { CompletionPulse, haptic } from "@/components/experience/completion-pulse";
+import { CompletionPulse, haptic, StrikeText } from "@/components/experience/completion-pulse";
 import { formatTime } from "@/lib/dates";
 import { actOnOccurrence } from "@/offline/use-sync";
 
@@ -55,7 +56,15 @@ export function TaskCompletionControl({
           done ? "border-primary bg-primary text-primary-foreground" : "border-input bg-surface",
         )}
       >
-        {done && <Check aria-hidden className="size-5" />}
+        {done && (
+          <motion.span
+            initial={{ scale: 0, rotate: -25 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 500, damping: 22 }}
+          >
+            <Check aria-hidden className="size-5" />
+          </motion.span>
+        )}
       </button>
     </CompletionPulse>
   );
@@ -87,14 +96,8 @@ export function OccurrenceCard({
         value={value === "" ? undefined : Number(value)}
       />
       <div className="min-w-0 flex-1">
-        <Link
-          to={`/app/tasks/${task.id}`}
-          className={cn(
-            "block truncate font-medium hover:underline",
-            status === "completed" && "text-ink-muted line-through",
-          )}
-        >
-          {task.title}
+        <Link to={`/app/tasks/${task.id}`} className="block truncate font-medium hover:underline">
+          <StrikeText done={status === "completed"}>{task.title}</StrikeText>
         </Link>
         <p className="flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
           <span className="inline-flex items-center gap-1">

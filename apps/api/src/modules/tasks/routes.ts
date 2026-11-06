@@ -18,6 +18,9 @@ export function taskRoutes({ prisma }: Deps) {
     await service.archiveTask(userId(req), param(req, "id"));
     res.status(204).end();
   });
+  router.post("/:id/today", async (req, res) =>
+    send(res, await service.ensureTodayOccurrence(userId(req), param(req, "id"))),
+  );
   router.post("/:id/reparent", async (req, res) =>
     send(res, await service.moveTask(userId(req), param(req, "id"), parse(reparentTask, req.body))),
   );

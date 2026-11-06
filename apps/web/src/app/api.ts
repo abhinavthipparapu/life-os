@@ -277,6 +277,9 @@ export const api = createApi({
       query: (params) => ({ url: "/occurrences", params }),
       providesTags: ["Occurrence"],
     }),
+    ensureTodayOccurrence: b.mutation<Occurrence, string>({
+      query: (id) => ({ url: `/tasks/${id}/today`, method: "POST", body: {} }),
+    }),
     deferOccurrence: b.mutation<
       Occurrence,
       { id: string; toDate: string; expectedVersion?: number }

@@ -63,6 +63,53 @@ test("new user plans, completes, undoes and sees progress", async ({ page }) => 
   await expect(page.getByText("First step")).toBeVisible();
 });
 
+test("tasks can be ticked and unticked in the planner, with a strike line, in sync with Today", async ({
+  page,
+}) => {
+  await signUp(page);
+  await createPlannerWithTask(page, "Errands", "Buy milk");
+  await page.getByPlaceholder("Add a task").fill("Water plants");
+  await page.getByRole("button", { name: "Add", exact: true }).first().click();
+  await expect(page.getByLabel("Task title")).toHaveCount(2);
+  await scheduleDaily(page, "Water plants");
+  await page.getByRole("link", { name: "Done" }).click();
+
+  const milk = page.getByRole("checkbox", { name: /Buy milk/ });
+  const plants = page.getByRole("checkbox", { name: /Water plants/ });
+  const strike = (name: string) => page.getByRole("link", { name }).getByTestId("strike-line");
+  const struck = async (name: string) =>
+    strike(name).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
+
+  await expect.poll(() => struck("Buy milk")).toBeLessThan(0.05);
+  await expectAccessible(page);
+
+  await milk.click();
+  await expect(milk).toHaveAttribute("aria-checked", "true");
+  await expect.poll(() => struck("Buy milk")).toBeGreaterThan(0.95);
+  await plants.click();
+  await expect(plants).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByRole("button", { name: /Sync status: Synced/ })).toBeVisible();
+  // Scan the settled page. Anything mid fade-in briefly measures as low contrast.
+  await page.waitForTimeout(700);
+  await expectAccessible(page);
+
+  await page.reload();
+  await expect(milk).toHaveAttribute("aria-checked", "true");
+
+  await page.goto("/app/today");
+  await expect(page.getByRole("checkbox", { name: /Buy milk/ })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await page.goBack();
+  await milk.click();
+  await expect(milk).toHaveAttribute("aria-checked", "false");
+  await expect.poll(() => struck("Buy milk")).toBeLessThan(0.05);
+  await expect(page.getByRole("button", { name: /Sync status: Synced/ })).toBeVisible();
+  await page.reload();
+  await expect(milk).toHaveAttribute("aria-checked", "false");
+});
+
 test("template install gives an editable copy", async ({ page }) => {
   await signUp(page);
   await page.goto("/app/templates");
@@ -265,6 +312,7 @@ test.describe("email verification", () => {
   }) => {
     const email = await start(page);
     await expect.poll(() => mailCount(email)).toBe(1);
+    await page.waitForTimeout(1500); // Local Auth allows one email per address per second.
     await login(page, email);
     await expect(page.getByText("Your account isn't active yet")).toBeVisible();
     await expect(page).toHaveURL(/check-email/);
@@ -282,6 +330,7 @@ test.describe("email verification", () => {
     await expect(page.getByRole("heading", { name: /^Hello/ })).toBeVisible();
     await page.goto("/app/settings");
     await page.getByRole("main").getByRole("button", { name: "Sign out" }).click();
+    await expect(page).toHaveURL(/\/login/);
     await login(page, email);
     await expect(page).toHaveURL(/\/app/);
   });
@@ -350,6 +399,9 @@ test("admin area is hidden from users, and needs MFA for admins", async ({ page 
   await page.getByRole("button", { name: "Verify" }).click();
   await expect(page.getByRole("alert")).toContainText("didn't work");
 
+  // Codes roll every 30 seconds, so start early in a window rather than racing its end.
+  const intoWindow = (Date.now() / 1000) % 30;
+  if (intoWindow > 20) await page.waitForTimeout((31 - intoWindow) * 1000);
   await page.getByLabel("Six digit code").fill(totp(secret));
   await page.getByRole("button", { name: "Verify" }).click();
   await expect(page.getByRole("tab", { name: "Audit" })).toBeVisible();

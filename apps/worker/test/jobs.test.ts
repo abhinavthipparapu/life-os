@@ -4,7 +4,7 @@ import { localDateOf } from "@lifeos/analytics-core";
 import { createPrisma } from "@lifeos/db";
 import { applyQuietHours, createMockProvider, rebuildDailyAggregates } from "@lifeos/domain";
 import { config } from "dotenv";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { reconcileAggregatesJob } from "../src/jobs/aggregates.js";
 import type { JobContext, PushTarget } from "../src/jobs/context.js";
 import { generateOccurrencesJob } from "../src/jobs/occurrences.js";
@@ -15,6 +15,9 @@ import { weeklyReportsJob } from "../src/jobs/weekly-reports.js";
 config({ path: resolve(import.meta.dirname, "../../../.env"), quiet: true });
 const prisma = createPrisma(process.env.TEST_DATABASE_URL!);
 afterAll(() => prisma.$disconnect());
+
+// Each run starts clean, so jobs that scan all users stay fast. Global setup guards this database name.
+beforeAll(() => prisma.profile.deleteMany());
 
 const today = localDateOf(new Date(), "UTC");
 const asDate = (d: string) => new Date(`${d}T00:00:00Z`);
@@ -168,6 +171,16 @@ describe("drainOutboxJob and aggregates", () => {
     const rows = await prisma.dailyAggregate.findMany({ where: { userId: u } });
     expect(rows).toHaveLength(1);
     expect(rows[0]!.completed).toBe(1);
+  });
+  it("skips users with no recent activity", async () => {
+    await user();
+    const u = await user();
+    const t = await task(u);
+    await prisma.taskOccurrence.create({
+      data: { userId: u, taskId: t.id, slotKey: "a", date: asDate(today) },
+    });
+    const active = await prisma.profile.count({ where: { occurrences: { some: {} } } });
+    expect((await reconcileAggregatesJob(ctx())).users).toBeLessThanOrEqual(active);
   });
   it("detects and repairs drift", async () => {
     const u = await user();
