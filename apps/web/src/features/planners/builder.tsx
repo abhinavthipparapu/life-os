@@ -360,7 +360,7 @@ function BuilderRow({
         <Button
           variant="ghost"
           size="sm"
-          aria-label={`Schedule ${task.title}`}
+          aria-label={`${describeRule(task.schedules[0]?.rrule)}. Schedule ${task.title}`}
           onClick={() => setScheduling(true)}
         >
           <CalendarClock aria-hidden className="size-4" />
