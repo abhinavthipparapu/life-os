@@ -110,6 +110,92 @@ test("tasks can be ticked and unticked in the planner, with a strike line, in sy
   await expect(milk).toHaveAttribute("aria-checked", "false");
 });
 
+test("sections, custom fields and templates can be renamed and deleted", async ({ page }) => {
+  page.on("dialog", (d) => void d.accept());
+  await signUp(page);
+  await page.goto("/app/planners/new");
+  await page.getByLabel("Name").fill("Home");
+  await page.getByRole("button", { name: "Create and build" }).click();
+  await page.getByLabel("New section name").fill("Morning");
+  await page.getByRole("button", { name: "Add section" }).click();
+
+  const section = page.getByLabel("Name of section Morning");
+  await section.fill("Evening");
+  await section.blur();
+  await expect(page.getByLabel("Name of section Evening")).toHaveValue("Evening");
+  await page.getByLabel("New task in Evening").fill("Lock the door");
+  await page.getByRole("region", { name: "Evening" }).getByRole("button", { name: "Add" }).click();
+  await expect(page.getByLabel("Task title")).toHaveValue("Lock the door");
+
+  await page.getByRole("button", { name: "Delete section Evening" }).click();
+  await expect(page.getByLabel("Name of section Evening")).toHaveCount(0);
+  await expect(page.getByLabel("Task title")).toHaveValue("Lock the door");
+
+  await page.getByLabel("Field name").fill("Effort");
+  await page.getByRole("button", { name: "Add field" }).click();
+  const field = page.getByLabel("Name of field Effort");
+  await field.fill("Energy");
+  await field.blur();
+  await expect(page.getByLabel("Name of field Energy")).toHaveValue("Energy");
+  await expectAccessible(page);
+  await page.getByRole("button", { name: "Delete field Energy" }).click();
+  await expect(page.getByLabel("Name of field Energy")).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Done" }).click();
+  await page.getByRole("button", { name: "Save as template" }).click();
+  await expect(page.getByText("Saved to your templates")).toBeVisible();
+  await page.goto("/app/templates");
+  const template = page.getByLabel("Name of template Home");
+  await template.fill("My home");
+  await template.blur();
+  await expect(page.getByLabel("Name of template My home")).toHaveValue("My home");
+  await expectAccessible(page);
+  await page.getByRole("button", { name: "Delete template My home" }).click();
+  await expect(page.getByLabel("Name of template My home")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Career growth" })).toBeVisible();
+});
+
+test("goals, metrics and entries can be edited, and a metric in use is protected", async ({
+  page,
+}) => {
+  page.on("dialog", (d) => void d.accept());
+  await signUp(page);
+  await page.goto("/app/goals");
+  await page.getByLabel("New metric").fill("Water");
+  await page.getByRole("button", { name: "Add metric" }).click();
+  await page.getByLabel("Log Water").fill("9999");
+  await page.getByRole("button", { name: "Log", exact: true }).click();
+  await expect(page.getByText("Water logged").first()).toBeVisible();
+
+  await page.getByRole("textbox", { name: "Goal" }).fill("Hydrate");
+  await page.getByRole("combobox", { name: "Metric" }).selectOption({ label: "Water" });
+  await page.getByLabel("Target", { exact: true }).fill("20000");
+  await page.getByRole("button", { name: "Add goal" }).click();
+  await expect(page.getByText("9999 of 20000")).toBeVisible();
+
+  await page.getByRole("button", { name: "Edit Hydrate" }).click();
+  await page.getByRole("dialog").getByLabel("Target").fill("10000");
+  await page.getByRole("button", { name: "Save goal" }).click();
+  await expect(page.getByText("9999 of 10000")).toBeVisible();
+
+  await page.getByRole("button", { name: "Edit metric Water" }).click();
+  const entry = page.getByRole("dialog").getByLabel(/Entry from/);
+  await expect(entry).toHaveValue("9999");
+  await expectAccessible(page);
+  await entry.fill("500");
+  await entry.blur();
+  await expect(entry).toHaveValue("500");
+
+  await page.getByRole("button", { name: "Delete metric" }).click();
+  await expect(page.getByText("Remove the goals and charts using this metric first")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByText("500 of 10000")).toBeVisible();
+
+  await page.getByRole("button", { name: "Edit metric Water" }).click();
+  await page.getByRole("button", { name: /Delete entry from/ }).click();
+  await expect(page.getByText("No entries yet.")).toBeVisible();
+});
+
 test("template install gives an editable copy", async ({ page }) => {
   await signUp(page);
   await page.goto("/app/templates");

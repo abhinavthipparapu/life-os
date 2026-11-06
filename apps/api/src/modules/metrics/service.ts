@@ -1,5 +1,11 @@
 import { localDateOf } from "@lifeos/analytics-core";
-import type { createMetric, createMetricLog, metricLogQuery } from "@lifeos/contracts";
+import type {
+  createMetric,
+  createMetricLog,
+  metricLogQuery,
+  updateMetric,
+  updateMetricLog,
+} from "@lifeos/contracts";
 import type { PrismaClient } from "@lifeos/db";
 import type { z } from "zod";
 import { audit } from "../../shared/audit.js";
@@ -56,6 +62,106 @@ export function metricService(prisma: PrismaClient) {
           entityId: metric.id,
         });
         return metric;
+      }),
+
+    updateMetric: (userId: string, id: string, input: z.output<typeof updateMetric>) =>
+      prisma.$transaction(async (tx) => {
+        const { count } = await tx.metricDefinition.updateMany({
+          where: { id, userId, deletedAt: null },
+          data: input,
+        });
+        if (count === 0) throw notFound("Metric");
+        await audit(tx, {
+          actorId: userId,
+          action: "metric.update",
+          entityType: "metric",
+          entityId: id,
+        });
+        return tx.metricDefinition.findUniqueOrThrow({ where: { id } });
+      }),
+
+    /** Refuses while something still reads the metric, so no goal or chart breaks silently. */
+    archiveMetric: (userId: string, id: string) =>
+      prisma.$transaction(async (tx) => {
+        const metric = await tx.metricDefinition.findFirst({
+          where: { id, userId, deletedAt: null },
+        });
+        if (!metric) throw notFound("Metric");
+        const goals = await tx.goal.count({ where: { userId, metricId: id, deletedAt: null } });
+        const widgets = await tx.dashboardWidget.count({
+          where: {
+            dashboard: { userId, deletedAt: null },
+            querySpecJson: { path: ["metricId"], equals: id },
+          },
+        });
+        if (goals + widgets > 0) {
+          throw new AppError(
+            409,
+            "metric_in_use",
+            "Remove the goals and charts using this metric first",
+          );
+        }
+        // Frees the key, so the user can create a new metric with the same name.
+        await tx.metricDefinition.update({
+          where: { id },
+          data: { deletedAt: new Date(), key: `${metric.key}__archived_${id.slice(0, 8)}` },
+        });
+        await audit(tx, {
+          actorId: userId,
+          action: "metric.archive",
+          entityType: "metric",
+          entityId: id,
+        });
+      }),
+
+    updateLog: (userId: string, id: string, input: z.output<typeof updateMetricLog>) =>
+      prisma.$transaction(async (tx) => {
+        const log = await tx.metricLog.findFirst({
+          where: { id, userId },
+          include: { metric: true },
+        });
+        if (!log) throw notFound("Log");
+        const value = input.value === undefined ? log.value : input.value;
+        const textValue = input.textValue === undefined ? log.textValue : input.textValue;
+        validateUnit(log.metric.kind, value, textValue);
+        const updated = await tx.metricLog.update({ where: { id }, data: { value, textValue } });
+        await tx.outboxEvent.create({
+          data: {
+            userId,
+            type: "metric.logged",
+            payload: { date: log.localDate.toISOString().slice(0, 10), metricKey: log.metric.key },
+          },
+        });
+        await audit(tx, {
+          actorId: userId,
+          action: "metric.log.update",
+          entityType: "metric_log",
+          entityId: id,
+        });
+        return updated;
+      }),
+
+    deleteLog: (userId: string, id: string) =>
+      prisma.$transaction(async (tx) => {
+        const log = await tx.metricLog.findFirst({
+          where: { id, userId },
+          include: { metric: true },
+        });
+        if (!log) throw notFound("Log");
+        await tx.metricLog.delete({ where: { id } });
+        await tx.outboxEvent.create({
+          data: {
+            userId,
+            type: "metric.logged",
+            payload: { date: log.localDate.toISOString().slice(0, 10), metricKey: log.metric.key },
+          },
+        });
+        await audit(tx, {
+          actorId: userId,
+          action: "metric.log.delete",
+          entityType: "metric_log",
+          entityId: id,
+        });
       }),
 
     async recordValue(userId: string, input: z.output<typeof createMetricLog>) {

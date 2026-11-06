@@ -216,6 +216,37 @@ export const api = createApi({
       invalidatesTags: (_r, _e, { plannerId }) => [{ type: "Planner", id: plannerId }],
     }),
 
+    updateSection: b.mutation<void, { plannerId: string; id: string; name: string }>({
+      query: ({ plannerId, id, name }) => ({
+        url: `/planners/${plannerId}/sections/${id}`,
+        method: "PATCH",
+        body: { name },
+      }),
+      invalidatesTags: (_r, _e, { plannerId }) => [{ type: "Planner", id: plannerId }],
+    }),
+    archiveSection: b.mutation<void, { plannerId: string; id: string }>({
+      query: ({ plannerId, id }) => ({
+        url: `/planners/${plannerId}/sections/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_r, _e, { plannerId }) => [{ type: "Planner", id: plannerId }],
+    }),
+    updateField: b.mutation<void, { plannerId: string; id: string; label: string }>({
+      query: ({ plannerId, id, label }) => ({
+        url: `/planners/${plannerId}/fields/${id}`,
+        method: "PATCH",
+        body: { label },
+      }),
+      invalidatesTags: (_r, _e, { plannerId }) => [{ type: "Planner", id: plannerId }],
+    }),
+    deleteField: b.mutation<void, { plannerId: string; id: string }>({
+      query: ({ plannerId, id }) => ({
+        url: `/planners/${plannerId}/fields/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_r, _e, { plannerId }) => [{ type: "Planner", id: plannerId }],
+    }),
+
     task: b.query<TaskDetail, string>({
       query: (id) => `/tasks/${id}`,
       providesTags: (_r, _e, id) => [{ type: "Task", id }],
@@ -305,9 +336,33 @@ export const api = createApi({
       invalidatesTags: ["MetricLog", "Goal", "Analytics"],
     }),
 
+    updateMetric: b.mutation<Metric, { id: string } & Record<string, unknown>>({
+      query: ({ id, ...body }) => ({ url: `/metrics/${id}`, method: "PATCH", body }),
+      invalidatesTags: [
+        { type: "Metric", id: "LIST" },
+        { type: "Goal", id: "LIST" },
+      ],
+    }),
+    archiveMetric: b.mutation<void, string>({
+      query: (id) => ({ url: `/metrics/${id}`, method: "DELETE" }),
+      invalidatesTags: [{ type: "Metric", id: "LIST" }],
+    }),
+    updateMetricLog: b.mutation<MetricLog, { id: string } & Record<string, unknown>>({
+      query: ({ id, ...body }) => ({ url: `/metric-logs/${id}`, method: "PATCH", body }),
+      invalidatesTags: ["MetricLog", { type: "Goal", id: "LIST" }, "Analytics"],
+    }),
+    deleteMetricLog: b.mutation<void, string>({
+      query: (id) => ({ url: `/metric-logs/${id}`, method: "DELETE" }),
+      invalidatesTags: ["MetricLog", { type: "Goal", id: "LIST" }, "Analytics"],
+    }),
+
     goals: b.query<Goal[], void>({ query: () => "/goals", providesTags: (r) => list("Goal", r) }),
     createGoal: b.mutation<Goal, Record<string, unknown>>({
       query: (body) => ({ url: "/goals", method: "POST", body }),
+      invalidatesTags: [{ type: "Goal", id: "LIST" }, "Home"],
+    }),
+    updateGoal: b.mutation<Goal, { id: string } & Record<string, unknown>>({
+      query: ({ id, ...body }) => ({ url: `/goals/${id}`, method: "PATCH", body }),
       invalidatesTags: [{ type: "Goal", id: "LIST" }, "Home"],
     }),
     archiveGoal: b.mutation<void, string>({
@@ -325,6 +380,14 @@ export const api = createApi({
     }),
     createTemplate: b.mutation<Template, Record<string, unknown>>({
       query: (body) => ({ url: "/templates", method: "POST", body }),
+      invalidatesTags: [{ type: "Template", id: "LIST" }],
+    }),
+    updateTemplate: b.mutation<Template, { id: string; name: string }>({
+      query: ({ id, name }) => ({ url: `/templates/${id}`, method: "PATCH", body: { name } }),
+      invalidatesTags: [{ type: "Template", id: "LIST" }],
+    }),
+    archiveTemplate: b.mutation<void, string>({
+      query: (id) => ({ url: `/templates/${id}`, method: "DELETE" }),
       invalidatesTags: [{ type: "Template", id: "LIST" }],
     }),
     instantiateTemplate: b.mutation<

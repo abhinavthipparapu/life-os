@@ -1,4 +1,4 @@
-import { createGoal } from "@lifeos/contracts";
+import { createGoal, updateGoal } from "@lifeos/contracts";
 import { Router } from "express";
 import type { Deps } from "../../shared/deps.js";
 import { param, parse, send, userId } from "../../shared/http.js";
@@ -13,6 +13,9 @@ export function goalRoutes({ prisma }: Deps) {
   );
   router.get("/:id", async (req, res) =>
     send(res, await service.get(userId(req), param(req, "id"))),
+  );
+  router.patch("/:id", async (req, res) =>
+    send(res, await service.updateGoal(userId(req), param(req, "id"), parse(updateGoal, req.body))),
   );
   router.delete("/:id", async (req, res) => {
     await service.archive(userId(req), param(req, "id"));

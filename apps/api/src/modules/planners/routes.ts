@@ -5,6 +5,8 @@ import {
   createTask,
   listQuery,
   updatePlanner,
+  updateSection,
+  updateFieldDefinition,
 } from "@lifeos/contracts";
 import { Router } from "express";
 import { idempotent } from "../../middleware/idempotency.js";
@@ -52,6 +54,32 @@ export function plannerRoutes({ prisma }: Deps) {
       201,
     ),
   );
+  router.patch("/:id/sections/:sectionId", async (req, res) => {
+    const { name } = parse(updateSection, req.body);
+    send(
+      res,
+      await service.updateSection(userId(req), param(req, "id"), param(req, "sectionId"), name),
+    );
+  });
+  router.delete("/:id/sections/:sectionId", async (req, res) => {
+    await service.archiveSection(userId(req), param(req, "id"), param(req, "sectionId"));
+    res.status(204).end();
+  });
+  router.patch("/:id/fields/:fieldId", async (req, res) =>
+    send(
+      res,
+      await service.updateField(
+        userId(req),
+        param(req, "id"),
+        param(req, "fieldId"),
+        parse(updateFieldDefinition, req.body),
+      ),
+    ),
+  );
+  router.delete("/:id/fields/:fieldId", async (req, res) => {
+    await service.deleteField(userId(req), param(req, "id"), param(req, "fieldId"));
+    res.status(204).end();
+  });
   router.post("/:id/fields", async (req, res) =>
     send(
       res,

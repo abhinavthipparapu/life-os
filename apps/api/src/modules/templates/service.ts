@@ -3,6 +3,7 @@ import {
   plannerSnapshot,
   type createTemplate,
   type instantiateTemplate,
+  type updateTemplate,
   type PlannerSnapshot,
 } from "@lifeos/contracts";
 import type { Prisma, PrismaClient } from "@lifeos/db";
@@ -109,6 +110,39 @@ export function templateService(prisma: PrismaClient) {
           entityId: id,
         });
         return version;
+      }),
+
+    /** Name and description only. Published versions never change. */
+    updateTemplate: (userId: string, id: string, input: z.output<typeof updateTemplate>) =>
+      prisma.$transaction(async (tx) => {
+        const { count } = await tx.template.updateMany({
+          where: { id, ownerId: userId, deletedAt: null },
+          data: input,
+        });
+        if (count === 0) throw notFound("Template");
+        await audit(tx, {
+          actorId: userId,
+          action: "template.update",
+          entityType: "template",
+          entityId: id,
+        });
+        return tx.template.findUniqueOrThrow({ where: { id } });
+      }),
+
+    /** Planners already made from it are independent copies, so they are unaffected. */
+    archiveTemplate: (userId: string, id: string) =>
+      prisma.$transaction(async (tx) => {
+        const { count } = await tx.template.updateMany({
+          where: { id, ownerId: userId, deletedAt: null },
+          data: { deletedAt: new Date() },
+        });
+        if (count === 0) throw notFound("Template");
+        await audit(tx, {
+          actorId: userId,
+          action: "template.archive",
+          entityType: "template",
+          entityId: id,
+        });
       }),
 
     /** Copies the immutable version into the user's workspace in one transaction and records its origin. */

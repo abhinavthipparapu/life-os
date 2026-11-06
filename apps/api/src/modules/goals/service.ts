@@ -1,5 +1,5 @@
 import { aggregate, goalProgress, localDateOf } from "@lifeos/analytics-core";
-import type { createGoal } from "@lifeos/contracts";
+import type { createGoal, updateGoal } from "@lifeos/contracts";
 import type { PrismaClient } from "@lifeos/db";
 import type { z } from "zod";
 import { audit } from "../../shared/audit.js";
@@ -92,6 +92,28 @@ export function goalService(prisma: PrismaClient) {
           entityId: goal.id,
         });
         return goal;
+      }),
+
+    updateGoal: (userId: string, id: string, input: z.output<typeof updateGoal>) =>
+      prisma.$transaction(async (tx) => {
+        if (input.metricId) {
+          const owned = await tx.metricDefinition.findFirst({
+            where: { id: input.metricId, userId, deletedAt: null },
+          });
+          if (!owned) throw notFound("Metric");
+        }
+        const { count } = await tx.goal.updateMany({
+          where: { id, userId, deletedAt: null },
+          data: input,
+        });
+        if (count === 0) throw notFound("Goal");
+        await audit(tx, {
+          actorId: userId,
+          action: "goal.update",
+          entityType: "goal",
+          entityId: id,
+        });
+        return tx.goal.findUniqueOrThrow({ where: { id } });
       }),
 
     archive: (userId: string, id: string) =>

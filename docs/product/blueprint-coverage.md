@@ -42,7 +42,7 @@ A section-by-section check of `LifeOS_Full_Implementation_Blueprint.pdf`, versio
 - **Rich task descriptions** are plain multi-line text. Formatting would need sanitized rendering.
 - **Offline editing** covers complete, skip and undo, which matches the blueprint's operation contract.
   Quick add and planner editing need a connection.
-- **Custom field reorder and deletion** have no UI, and neither does section rename or delete.
+- **Reordering** custom fields and sections has no UI yet.
 - **Docker images** are about 1.4 GB because they include dev dependencies. Slim them before heavy scaling.
 - **Unsafe content filtering** is a keyword list. Add a moderation API before wide release.
 - **Dependency audit:** 2 moderate findings remain in a build-time dependency of Sentry, which never handles

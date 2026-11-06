@@ -42,6 +42,13 @@ Base path `/api/v1`. Every route except health checks needs `Authorization: Bear
 | GET, POST          | `/metrics`                                                     | Metric definitions                                                   |
 | GET                | `/metrics/:id/series`                                          | Bucketed values                                                      |
 | GET, POST          | `/metric-logs`                                                 | Metric logs                                                          |
+| PATCH, DELETE      | `/planners/:id/sections/:sectionId`                            | Rename, delete. Tasks are kept                                       |
+| PATCH, DELETE      | `/planners/:id/fields/:fieldId`                                | Edit label and rules, delete with its values                         |
+| PATCH, DELETE      | `/metrics/:id`                                                 | Edit, delete. Refused while a goal or chart uses it                  |
+| PATCH, DELETE      | `/metric-logs/:id`                                             | Correct or delete an entry                                           |
+| PATCH              | `/goals/:id`                                                   | Edit a goal                                                          |
+| PATCH, DELETE      | `/templates/:id`                                               | Rename, delete your own. Versions stay immutable                     |
+| POST               | `/tasks/:id/today`                                             | Entry for ticking a task today                                       |
 | GET, POST          | `/goals`                                                       | Goals with progress                                                  |
 | GET, DELETE        | `/goals/:id`                                                   | Read, archive                                                        |
 | GET, POST          | `/templates`                                                   | Browse, create from a planner or snapshot                            |

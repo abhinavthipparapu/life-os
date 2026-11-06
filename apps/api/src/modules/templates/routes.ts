@@ -1,4 +1,9 @@
-import { createTemplate, createTemplateVersion, instantiateTemplate } from "@lifeos/contracts";
+import {
+  createTemplate,
+  createTemplateVersion,
+  instantiateTemplate,
+  updateTemplate,
+} from "@lifeos/contracts";
 import { Router } from "express";
 import { z } from "zod";
 import { idempotent } from "../../middleware/idempotency.js";
@@ -27,6 +32,16 @@ export function templateRoutes({ prisma }: Deps) {
   router.get("/:id", async (req, res) => {
     const { version } = parse(versionQuery, req.query);
     send(res, await service.getVersion(userId(req), param(req, "id"), version));
+  });
+  router.patch("/:id", async (req, res) =>
+    send(
+      res,
+      await service.updateTemplate(userId(req), param(req, "id"), parse(updateTemplate, req.body)),
+    ),
+  );
+  router.delete("/:id", async (req, res) => {
+    await service.archiveTemplate(userId(req), param(req, "id"));
+    res.status(204).end();
   });
   router.post("/:id/versions", async (req, res) =>
     send(

@@ -6,12 +6,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@lifeos/ui/components/dialog";
-import { LayoutTemplate } from "lucide-react";
+import { LayoutTemplate, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { api, messageOf } from "@/app/api";
 import type { PlanTaskNode, Template } from "@/app/types";
+import { EditableName } from "@/components/common/forms";
 import { EmptyState, ErrorState, PageHeader, PageSkeleton } from "@/components/common/states";
 import { describeRule } from "@/features/planners/tree";
 
@@ -71,6 +72,8 @@ function Preview({ template, onClose }: { template: Template; onClose: () => voi
 export function TemplatesPage() {
   const { data, isLoading, error, refetch } = api.useTemplatesQuery({});
   const [preview, setPreview] = useState<Template | null>(null);
+  const [rename] = api.useUpdateTemplateMutation();
+  const [archive] = api.useArchiveTemplateMutation();
   const groups: [string, Template[]][] = [
     ["Starter templates", data?.filter((t) => t.visibility === "starter") ?? []],
     ["Your templates", data?.filter((t) => t.ownerId) ?? []],
@@ -99,11 +102,37 @@ export function TemplatesPage() {
                 <ul className="grid gap-3 sm:grid-cols-2">
                   {items.map((t) => (
                     <li key={t.id} className="card-surface flex flex-col gap-2 p-4">
-                      <h3 className="font-medium">{t.name}</h3>
+                      {t.ownerId ? (
+                        <EditableName
+                          label={`Name of template ${t.name}`}
+                          value={t.name}
+                          onSave={(name) => rename({ id: t.id, name }).unwrap()}
+                        />
+                      ) : (
+                        <h3 className="font-medium">{t.name}</h3>
+                      )}
                       <p className="flex-1 text-sm text-ink-muted">{t.description}</p>
-                      <Button variant="outline" onClick={() => setPreview(t)}>
-                        Preview
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button variant="outline" className="flex-1" onClick={() => setPreview(t)}>
+                          Preview
+                        </Button>
+                        {t.ownerId && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Delete template ${t.name}`}
+                            onClick={() => {
+                              if (
+                                window.confirm(`Delete ${t.name}? Planners made from it are kept.`)
+                              ) {
+                                void archive(t.id);
+                              }
+                            }}
+                          >
+                            <Trash2 aria-hidden className="size-4" />
+                          </Button>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>

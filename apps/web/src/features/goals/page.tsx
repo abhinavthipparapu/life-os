@@ -1,14 +1,191 @@
 import { Button } from "@lifeos/ui/components/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@lifeos/ui/components/dialog";
 import { Input } from "@lifeos/ui/components/input";
 import { Progress } from "@lifeos/ui/components/progress";
-import { Archive, Target } from "lucide-react";
+import { Archive, Pencil, Target, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { api, messageOf } from "@/app/api";
 import type { Goal, Metric } from "@/app/types";
-import { Field, NativeSelect } from "@/components/common/forms";
+import { EditableName, Field, NativeSelect } from "@/components/common/forms";
 import { EmptyState, ErrorState, PageHeader, PageSkeleton } from "@/components/common/states";
 import { ChartWidget } from "@/features/analytics/widgets";
+
+function MetricHistory({ metric }: { metric: Metric }) {
+  const { data, isLoading } = api.useMetricLogsQuery({ metricId: metric.id, limit: 20 });
+  const [update] = api.useUpdateMetricLogMutation();
+  const [remove] = api.useDeleteMetricLogMutation();
+  if (isLoading) return <p className="text-sm text-ink-muted">Loading entries</p>;
+  if (!data?.length) return <p className="text-sm text-ink-muted">No entries yet.</p>;
+  const text = metric.kind === "text";
+  return (
+    <ul className="max-h-64 space-y-1 overflow-auto">
+      {data.map((log) => {
+        const when = new Date(log.recordedAt).toLocaleDateString();
+        return (
+          <li key={log.id} className="flex items-center gap-2 text-sm">
+            <span className="w-24 shrink-0 text-ink-muted">{when}</span>
+            <EditableName
+              label={`Entry from ${when}`}
+              value={String((text ? log.textValue : log.value) ?? "")}
+              className="min-w-0 flex-1"
+              onSave={(next) =>
+                update(
+                  text ? { id: log.id, textValue: next } : { id: log.id, value: Number(next) },
+                ).unwrap()
+              }
+            />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Delete entry from ${when}`}
+              onClick={() => {
+                if (window.confirm("Delete this entry?")) void remove(log.id);
+              }}
+            >
+              <Trash2 aria-hidden className="size-4" />
+            </Button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function EditMetric({ metric, onClose }: { metric: Metric; onClose: () => void }) {
+  const [update, { isLoading }] = api.useUpdateMetricMutation();
+  const [archive] = api.useArchiveMetricMutation();
+  const [form, setForm] = useState({ label: metric.label, unit: metric.unit ?? "" });
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await update({ id: metric.id, label: form.label.trim(), unit: form.unit || null }).unwrap();
+      onClose();
+    } catch (err) {
+      toast.error(messageOf(err));
+    }
+  };
+  const remove = async () => {
+    if (!window.confirm(`Delete ${metric.label}? Its entries will no longer appear.`)) return;
+    try {
+      await archive(metric.id).unwrap();
+      onClose();
+    } catch (err) {
+      toast.error(messageOf(err));
+    }
+  };
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[85dvh] overflow-auto">
+        <DialogHeader>
+          <DialogTitle>Edit metric</DialogTitle>
+          <DialogDescription>Correct past entries here, or rename the metric.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={(e) => void save(e)} className="space-y-3">
+          <Field id="em-label" label="Name">
+            <Input
+              id="em-label"
+              value={form.label}
+              onChange={(e) => setForm({ ...form, label: e.target.value })}
+            />
+          </Field>
+          <Field id="em-unit" label="Unit">
+            <Input
+              id="em-unit"
+              value={form.unit}
+              onChange={(e) => setForm({ ...form, unit: e.target.value })}
+            />
+          </Field>
+          <Button type="submit" className="w-full" disabled={isLoading || !form.label.trim()}>
+            Save metric
+          </Button>
+        </form>
+        <section aria-label="Recent entries">
+          <h3 className="mb-1 text-sm font-medium">Recent entries</h3>
+          <MetricHistory metric={metric} />
+        </section>
+        <Button variant="ghost" className="text-danger" onClick={() => void remove()}>
+          Delete metric
+        </Button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditGoal({ goal, onClose }: { goal: Goal; onClose: () => void }) {
+  const [update, { isLoading }] = api.useUpdateGoalMutation();
+  const [form, setForm] = useState({
+    title: goal.title,
+    target: String(goal.target),
+    period: goal.period,
+  });
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await update({
+        id: goal.id,
+        title: form.title.trim(),
+        target: Number(form.target),
+        period: form.period,
+      }).unwrap();
+      onClose();
+    } catch (err) {
+      toast.error(messageOf(err));
+    }
+  };
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit goal</DialogTitle>
+          <DialogDescription>Progress recalculates from your logged entries.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={(e) => void save(e)} className="space-y-3">
+          <Field id="eg-title" label="Goal">
+            <Input
+              id="eg-title"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            />
+          </Field>
+          <Field id="eg-target" label="Target">
+            <Input
+              id="eg-target"
+              type="number"
+              min="0"
+              value={form.target}
+              onChange={(e) => setForm({ ...form, target: e.target.value })}
+            />
+          </Field>
+          <Field id="eg-period" label="Period">
+            <NativeSelect
+              id="eg-period"
+              value={form.period}
+              onChange={(e) => setForm({ ...form, period: e.target.value })}
+            >
+              {["daily", "weekly", "monthly", "yearly", "total"].map((p) => (
+                <option key={p}>{p}</option>
+              ))}
+            </NativeSelect>
+          </Field>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isLoading || !form.title.trim() || !(Number(form.target) > 0)}
+          >
+            Save goal
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function MetricManager({ metrics }: { metrics: Metric[] }) {
   const [create, { isLoading }] = api.useCreateMetricMutation();
@@ -21,6 +198,7 @@ function MetricManager({ metrics }: { metrics: Metric[] }) {
     isSensitive: false,
   });
   const [values, setValues] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<Metric | null>(null);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const key = form.label
@@ -73,6 +251,14 @@ function MetricManager({ metrics }: { metrics: Metric[] }) {
             <Button variant="outline" size="sm" onClick={() => void record(m)}>
               Log
             </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Edit metric ${m.label}`}
+              onClick={() => setEditing(m)}
+            >
+              <Pencil aria-hidden className="size-4" />
+            </Button>
           </li>
         ))}
       </ul>
@@ -118,12 +304,14 @@ function MetricManager({ metrics }: { metrics: Metric[] }) {
           Sensitive, such as health or medication. Excluded from AI unless you opt in.
         </label>
       </form>
+      {editing && <EditMetric metric={editing} onClose={() => setEditing(null)} />}
     </section>
   );
 }
 
 function GoalCard({ goal }: { goal: Goal }) {
   const [archive] = api.useArchiveGoalMutation();
+  const [editing, setEditing] = useState(false);
   const percent = Math.round(goal.progress * 100);
   return (
     <li className="card-surface space-y-3 p-4">
@@ -135,15 +323,26 @@ function GoalCard({ goal }: { goal: Goal }) {
             {goal.metric?.unit ?? ""}
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Archive ${goal.title}`}
-          onClick={() => void archive(goal.id)}
-        >
-          <Archive aria-hidden className="size-4" />
-        </Button>
+        <div className="flex">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Edit ${goal.title}`}
+            onClick={() => setEditing(true)}
+          >
+            <Pencil aria-hidden className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Archive ${goal.title}`}
+            onClick={() => void archive(goal.id)}
+          >
+            <Archive aria-hidden className="size-4" />
+          </Button>
+        </div>
       </div>
+      {editing && <EditGoal goal={goal} onClose={() => setEditing(false)} />}
       <Progress value={percent} aria-label={`${goal.title}: ${percent} percent`} />
       {goal.milestones.length > 0 && (
         <ul className="flex flex-wrap gap-1.5">

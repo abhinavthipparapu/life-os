@@ -1,4 +1,5 @@
 import type {
+  updateFieldDefinition,
   createFieldDefinition,
   createPlanner,
   createSection,
@@ -155,6 +156,83 @@ export function plannerService(prisma: PrismaClient) {
           entityId: section.id,
         });
         return section;
+      }),
+
+    updateSection: (userId: string, plannerId: string, id: string, name: string) =>
+      prisma.$transaction(async (tx) => {
+        await ownedPlanner(tx, userId, plannerId);
+        const { count } = await tx.plannerSection.updateMany({
+          where: { id, plannerId, deletedAt: null },
+          data: { name },
+        });
+        if (count === 0) throw notFound("Section");
+        await audit(tx, {
+          actorId: userId,
+          action: "section.update",
+          entityType: "section",
+          entityId: id,
+        });
+        return tx.plannerSection.findUniqueOrThrow({ where: { id } });
+      }),
+
+    /** Removing a section never removes work: its tasks move to the planner's unsectioned list. */
+    archiveSection: (userId: string, plannerId: string, id: string) =>
+      prisma.$transaction(async (tx) => {
+        await ownedPlanner(tx, userId, plannerId);
+        const { count } = await tx.plannerSection.updateMany({
+          where: { id, plannerId, deletedAt: null },
+          data: { deletedAt: new Date() },
+        });
+        if (count === 0) throw notFound("Section");
+        await tx.task.updateMany({
+          where: { sectionId: id, plannerId },
+          data: { sectionId: null },
+        });
+        await audit(tx, {
+          actorId: userId,
+          action: "section.archive",
+          entityType: "section",
+          entityId: id,
+        });
+      }),
+
+    updateField: (
+      userId: string,
+      plannerId: string,
+      id: string,
+      input: z.output<typeof updateFieldDefinition>,
+    ) =>
+      prisma.$transaction(async (tx) => {
+        await ownedPlanner(tx, userId, plannerId);
+        const { count } = await tx.fieldDefinition.updateMany({
+          where: { id, plannerId, deletedAt: null },
+          data: {
+            ...(input.label ? { label: input.label } : {}),
+            ...(input.validation ? { validationJson: input.validation } : {}),
+          },
+        });
+        if (count === 0) throw notFound("Field");
+        await audit(tx, {
+          actorId: userId,
+          action: "field.update",
+          entityType: "field",
+          entityId: id,
+        });
+        return tx.fieldDefinition.findUniqueOrThrow({ where: { id } });
+      }),
+
+    /** Removes the field and its values, which also frees the key to be reused. */
+    deleteField: (userId: string, plannerId: string, id: string) =>
+      prisma.$transaction(async (tx) => {
+        await ownedPlanner(tx, userId, plannerId);
+        const { count } = await tx.fieldDefinition.deleteMany({ where: { id, plannerId } });
+        if (count === 0) throw notFound("Field");
+        await audit(tx, {
+          actorId: userId,
+          action: "field.delete",
+          entityType: "field",
+          entityId: id,
+        });
       }),
 
     createField: (

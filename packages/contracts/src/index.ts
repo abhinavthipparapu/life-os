@@ -83,6 +83,8 @@ export const createSection = z.object({
   position: z.number().int().min(0).optional(),
 });
 
+export const updateSection = z.object({ name });
+
 // ---- Tasks and schedules ----
 export const taskType = z.enum(["checkbox", "quantity", "duration", "rating", "text"]);
 export const schedule = z.object({
@@ -134,6 +136,12 @@ export const createFieldDefinition = z.object({
     .default({}),
 });
 
+// Key and type are fixed: stored values and templates depend on them.
+export const updateFieldDefinition = z.object({
+  label: name.optional(),
+  validation: createFieldDefinition.shape.validation.unwrap().optional(),
+});
+
 // ---- Occurrences ----
 export const occurrenceQuery = z
   .object({ from: localDate, to: localDate, plannerId: id.optional() })
@@ -176,6 +184,17 @@ export const createMetricLog = z.object({
   value: z.number().finite().nullable().optional(),
   textValue: z.string().trim().max(2000).nullable().optional(),
 });
+// Key and kind are fixed: existing logs were validated against them.
+export const updateMetric = z.object({
+  label: name.optional(),
+  unit: z.string().trim().max(24).nullable().optional(),
+  aggregation: aggregation.optional(),
+  isSensitive: z.boolean().optional(),
+});
+export const updateMetricLog = z.object({
+  value: z.number().finite().nullable().optional(),
+  textValue: z.string().trim().max(2000).nullable().optional(),
+});
 export const metricLogQuery = pageQuery.extend({ metricId: id.optional() });
 export const seriesQuery = z.object({
   from: localDate,
@@ -194,6 +213,13 @@ export const createGoal = z.object({
     .array(z.object({ title: name, threshold: z.number().finite().positive() }))
     .max(20)
     .optional(),
+});
+
+export const updateGoal = z.object({
+  title: name.optional(),
+  metricId: id.nullable().optional(),
+  target: z.number().finite().positive().optional(),
+  period: goalPeriod.optional(),
 });
 
 // ---- Templates and AI drafts share one plan shape ----
@@ -260,6 +286,10 @@ export const createTemplate = z.object({
   description: z.string().trim().max(2000).nullable().optional(),
   plannerId: id.optional(),
   snapshot: plannerSnapshot.optional(),
+});
+export const updateTemplate = z.object({
+  name: name.optional(),
+  description: z.string().trim().max(2000).nullable().optional(),
 });
 export const instantiateTemplate = z.object({
   version: z.number().int().positive().optional(),

@@ -23,7 +23,7 @@ import { Link, useBlocker, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api, messageOf, problemOf } from "@/app/api";
 import type { FieldDefinition, PlannerDetail, Section, TaskRow } from "@/app/types";
-import { Field, NativeSelect } from "@/components/common/forms";
+import { EditableName, Field, NativeSelect } from "@/components/common/forms";
 import { ErrorState, PageHeader, PageSkeleton } from "@/components/common/states";
 import { localToday } from "@/lib/dates";
 import {
@@ -164,6 +164,8 @@ export function CustomFieldEditor({
   const [options, setOptions] = useState("");
   const [required, setRequired] = useState(false);
   const [create, { isLoading }] = api.useCreateFieldMutation();
+  const [updateField] = api.useUpdateFieldMutation();
+  const [deleteField] = api.useDeleteFieldMutation();
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const key = label
@@ -202,10 +204,30 @@ export function CustomFieldEditor({
         Custom fields
       </h2>
       {fields.length > 0 && (
-        <ul className="mt-2 flex flex-wrap gap-2">
+        <ul className="mt-2 space-y-2">
           {fields.map((f) => (
-            <li key={f.id} className="rounded-full bg-surface-2 px-3 py-1 text-sm">
-              {f.label} ({f.type})
+            <li key={f.id} className="flex items-center gap-2">
+              <EditableName
+                label={`Name of field ${f.label}`}
+                value={f.label}
+                className="min-w-0 flex-1"
+                onSave={(label) => updateField({ plannerId, id: f.id, label }).unwrap()}
+              />
+              <span className="w-16 shrink-0 text-xs text-ink-muted">{f.type}</span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Delete field ${f.label}`}
+                onClick={() => {
+                  if (
+                    window.confirm(`Delete ${f.label}? Values saved on tasks will be removed too.`)
+                  ) {
+                    void deleteField({ plannerId, id: f.id });
+                  }
+                }}
+              >
+                <Trash2 aria-hidden className="size-4" />
+              </Button>
             </li>
           ))}
         </ul>
@@ -420,6 +442,8 @@ export function SectionEditor({
 }) {
   const [title, setTitle] = useState("");
   const [create, { isLoading }] = api.useCreateTaskMutation();
+  const [updateSection] = api.useUpdateSectionMutation();
+  const [archiveSection] = api.useArchiveSectionMutation();
   const nodes = buildTree(planner.tasks.filter((t) => t.sectionId === (section?.id ?? null)));
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -437,7 +461,34 @@ export function SectionEditor({
   };
   return (
     <section className="card-surface p-4" aria-label={section?.name ?? "Tasks"}>
-      <h2 className="font-semibold">{section?.name ?? "Tasks"}</h2>
+      {section ? (
+        <div className="flex items-center gap-2">
+          <EditableName
+            label={`Name of section ${section.name}`}
+            value={section.name}
+            className="min-w-0 flex-1 font-semibold"
+            onSave={(name) =>
+              updateSection({ plannerId: planner.id, id: section.id, name }).unwrap()
+            }
+          />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Delete section ${section.name}`}
+            onClick={() => {
+              if (
+                window.confirm(`Delete ${section.name}? Its tasks will be kept and moved to Tasks.`)
+              ) {
+                void archiveSection({ plannerId: planner.id, id: section.id });
+              }
+            }}
+          >
+            <Trash2 aria-hidden className="size-4" />
+          </Button>
+        </div>
+      ) : (
+        <h2 className="font-semibold">Tasks</h2>
+      )}
       <ul className="mt-2">
         {nodes.map((n, i) => (
           <BuilderRow
