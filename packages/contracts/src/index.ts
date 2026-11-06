@@ -87,6 +87,39 @@ export const updateSection = z.object({ name });
 
 // ---- Tasks and schedules ----
 export const taskType = z.enum(["checkbox", "quantity", "duration", "rating", "text"]);
+export type TaskType = z.infer<typeof taskType>;
+
+/** Which measurement each task type uses. The API, screens, templates and AI drafts all share it. */
+export const TASK_TYPE_RULES: Record<TaskType, { target: boolean; unit: boolean }> = {
+  checkbox: { target: false, unit: false },
+  quantity: { target: true, unit: true },
+  duration: { target: true, unit: false },
+  rating: { target: false, unit: false },
+  text: { target: false, unit: false },
+};
+export const DURATION_UNIT = "min";
+export const RATING_RANGE = { min: 1, max: 10 } as const;
+
+export const usesTarget = (type: string) => TASK_TYPE_RULES[type as TaskType]?.target ?? false;
+
+/** Drops values a type doesn't use. Durations are stored in minutes, so hours are converted. */
+export function normalizeTaskTarget(task: {
+  type: TaskType;
+  targetValue?: number | null;
+  targetUnit?: string | null;
+}): { targetValue: number | null; targetUnit: string | null } {
+  const rules = TASK_TYPE_RULES[task.type];
+  const value = task.targetValue ?? null;
+  if (!rules.target || value === null) {
+    return { targetValue: null, targetUnit: task.type === "duration" ? DURATION_UNIT : null };
+  }
+  if (task.type === "duration") {
+    const hours = /^(h|hr|hrs|hour|hours)$/i.test(task.targetUnit?.trim() ?? "");
+    return { targetValue: hours ? value * 60 : value, targetUnit: DURATION_UNIT };
+  }
+  return { targetValue: value, targetUnit: task.targetUnit?.trim() || null };
+}
+
 export const schedule = z.object({
   rrule: z.string().trim().min(1).max(500),
   slot: z.string().trim().min(1).max(40).default("default"),
@@ -111,6 +144,8 @@ export const updateTask = createTask
   .omit({ parentTaskId: true, schedule: true })
   .partial()
   .extend({
+    // Stated explicitly: .partial() would inherit the "checkbox" default and reset the type.
+    type: taskType.optional(),
     expectedVersion: z.number().int().positive(),
     schedule: schedule.nullable().optional(),
     sortOrder: z.number().int().min(0).optional(),
@@ -365,7 +400,10 @@ export const widget = z.object({
     .optional(),
 });
 export const createDashboard = z.object({ name, widgets: z.array(widget).max(24).default([]) });
-export const updateDashboard = createDashboard.partial();
+// Stated explicitly: .partial() would inherit the [] default and wipe charts on a rename.
+export const updateDashboard = createDashboard.partial().extend({
+  widgets: z.array(widget).max(24).optional(),
+});
 
 // ---- AI ----
 export const createPlannerDraft = z.object({

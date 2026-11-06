@@ -1,3 +1,4 @@
+import { RATING_RANGE, TASK_TYPE_RULES, usesTarget } from "@lifeos/contracts";
 import { Button } from "@lifeos/ui/components/button";
 import {
   Dialog,
@@ -38,6 +39,7 @@ function TaskEditor({
     targetUnit: task.targetUnit ?? "",
   });
   const [values, setValues] = useState<Record<string, unknown>>(initial);
+  const rules = TASK_TYPE_RULES[form.type];
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     const custom: Record<string, unknown> = {};
@@ -53,8 +55,8 @@ function TaskEditor({
         expectedVersion: task.version,
         description: form.description || null,
         type: form.type,
-        targetValue: form.targetValue === "" ? null : Number(form.targetValue),
-        targetUnit: form.targetUnit || null,
+        targetValue: !rules.target || form.targetValue === "" ? null : Number(form.targetValue),
+        targetUnit: rules.unit ? form.targetUnit || null : null,
         fields: custom,
       }).unwrap();
       toast.success("Saved");
@@ -85,22 +87,35 @@ function TaskEditor({
             ))}
           </NativeSelect>
         </Field>
-        <Field id="t-target" label="Target">
-          <Input
-            id="t-target"
-            type="number"
-            value={form.targetValue}
-            onChange={(e) => setForm({ ...form, targetValue: e.target.value })}
-          />
-        </Field>
-        <Field id="t-unit" label="Unit">
-          <Input
-            id="t-unit"
-            value={form.targetUnit}
-            onChange={(e) => setForm({ ...form, targetUnit: e.target.value })}
-          />
-        </Field>
+        {rules.target && (
+          <Field id="t-target" label={form.type === "duration" ? "Target (minutes)" : "Target"}>
+            <Input
+              id="t-target"
+              type="number"
+              min="0"
+              value={form.targetValue}
+              onChange={(e) => setForm({ ...form, targetValue: e.target.value })}
+            />
+          </Field>
+        )}
+        {rules.unit && (
+          <Field id="t-unit" label="Unit">
+            <Input
+              id="t-unit"
+              value={form.targetUnit}
+              onChange={(e) => setForm({ ...form, targetUnit: e.target.value })}
+            />
+          </Field>
+        )}
       </div>
+      {form.type === "rating" && (
+        <p className="text-xs text-ink-muted">
+          Rated from {RATING_RANGE.min} to {RATING_RANGE.max} each time you complete it.
+        </p>
+      )}
+      {form.type === "text" && (
+        <p className="text-xs text-ink-muted">You can write a note when you complete it.</p>
+      )}
       {fields.map((f) => {
         const id = `cf-${f.key}`;
         const set = (value: unknown) => setValues({ ...values, [f.id]: value });
@@ -193,7 +208,7 @@ export function TaskPage() {
                 {describeRule(data.schedules[0]?.rrule)}
                 {data.schedules[0]?.localTime ? ` at ${data.schedules[0].localTime}` : ""}
               </dd>
-              {data.targetValue !== null && (
+              {usesTarget(data.type) && data.targetValue !== null && (
                 <>
                   <dt className="text-ink-muted">Target</dt>
                   <dd>

@@ -115,6 +115,96 @@ describe("occurrence lifecycle", () => {
   });
 });
 
+describe("task type rules", () => {
+  const setup = async (u: U) =>
+    (await u.post("/api/v1/planners", { name: "Rules", timezone: "UTC" })).body.data;
+  const make = async (u: U, plannerId: string, body: object) =>
+    (await u.post(`/api/v1/planners/${plannerId}/tasks`, { title: "T", ...body })).body.data;
+
+  it("drops target and unit on types that don't use them", async () => {
+    const u = await h.user();
+    const p = await setup(u);
+    for (const type of ["checkbox", "rating", "text"]) {
+      const t = await make(u, p.id, { type, targetValue: 5, targetUnit: "cups" });
+      expect(t).toMatchObject({ targetValue: null, targetUnit: null });
+    }
+  });
+  it("keeps both for quantity, and stores durations in minutes", async () => {
+    const u = await h.user();
+    const p = await setup(u);
+    expect(
+      await make(u, p.id, { type: "quantity", targetValue: 2000, targetUnit: "ml" }),
+    ).toMatchObject({ targetValue: 2000, targetUnit: "ml" });
+    expect(
+      await make(u, p.id, { type: "duration", targetValue: 30, targetUnit: "cups" }),
+    ).toMatchObject({ targetValue: 30, targetUnit: "min" });
+    expect(
+      await make(u, p.id, { type: "duration", targetValue: 2, targetUnit: "hours" }),
+    ).toMatchObject({ targetValue: 120, targetUnit: "min" });
+  });
+  it("clears old values when only the type changes", async () => {
+    const u = await h.user();
+    const p = await setup(u);
+    const t = await make(u, p.id, { type: "quantity", targetValue: 8, targetUnit: "cups" });
+    const res = await u.patch(`/api/v1/tasks/${t.id}`, { type: "checkbox", expectedVersion: 1 });
+    expect(res.body.data).toMatchObject({ type: "checkbox", targetValue: null, targetUnit: null });
+  });
+  it("keeps the task's type when another field changes", async () => {
+    const u = await h.user();
+    const p = await setup(u);
+    const t = await make(u, p.id, { type: "duration", targetValue: 30 });
+    const res = await u.patch(`/api/v1/tasks/${t.id}`, { title: "Renamed", expectedVersion: 1 });
+    expect(res.body.data.type).toBe("duration");
+  });
+  it("keeps the stored target when another field changes", async () => {
+    const u = await h.user();
+    const p = await setup(u);
+    const t = await make(u, p.id, { type: "quantity", targetValue: 8, targetUnit: "cups" });
+    const res = await u.patch(`/api/v1/tasks/${t.id}`, { title: "Renamed", expectedVersion: 1 });
+    expect(res.body.data).toMatchObject({ title: "Renamed", targetValue: 8, targetUnit: "cups" });
+  });
+  it("applies the same rules to templates and AI drafts", async () => {
+    const u = await h.user();
+    const snapshot = {
+      name: "Plan",
+      sections: [
+        {
+          name: "S",
+          tasks: [{ title: "Tick", type: "checkbox", targetValue: 5, targetUnit: "x" }],
+        },
+      ],
+    };
+    const tpl = (await u.post("/api/v1/templates", { name: "T", snapshot })).body.data;
+    const planner = (await u.post(`/api/v1/templates/${tpl.id}/instantiate`, {})).body.data;
+    const tasks = (await u.get(`/api/v1/planners/${planner.id}`)).body.data.tasks;
+    expect(tasks[0]).toMatchObject({ targetValue: null, targetUnit: null });
+  });
+  it("keeps ratings on the 1 to 10 scale, and saves notes on text tasks", async () => {
+    const u = await h.user();
+    const p = await setup(u);
+    const rated = await make(u, p.id, {
+      type: "rating",
+      schedule: { rrule: "FREQ=DAILY;COUNT=1", startsOn: today },
+    });
+    const [o] = (await u.get(`/api/v1/occurrences?from=${today}&to=${today}&plannerId=${p.id}`))
+      .body.data;
+    expect(
+      (await u.post(`/api/v1/occurrences/${o.id}/complete`, { value: 11 })).body.error.code,
+    ).toBe("invalid_rating");
+    expect((await u.post(`/api/v1/occurrences/${o.id}/complete`, { value: 8 })).status).toBe(200);
+    void rated;
+    const q = await setup(u);
+    await make(u, q.id, {
+      type: "text",
+      schedule: { rrule: "FREQ=DAILY;COUNT=1", startsOn: today },
+    });
+    const [n] = (await u.get(`/api/v1/occurrences?from=${today}&to=${today}&plannerId=${q.id}`))
+      .body.data;
+    const done = await u.post(`/api/v1/occurrences/${n.id}/complete`, { note: "Felt good" });
+    expect(done.body.data.note).toBe("Felt good");
+  });
+});
+
 describe("ticking a task from the planner", () => {
   const unscheduled = async (u: U, titles: string[]) => {
     const p = (await u.post("/api/v1/planners", { name: "Loose", timezone: "UTC" })).body.data;
@@ -314,6 +404,18 @@ describe("analytics", () => {
     const after = (await u.get("/api/v1/home")).body.data;
     expect(after.score).toBe(100);
     expect(after.streak.current).toBe(3);
+  });
+  it("keeps a dashboard's charts when only its name changes", async () => {
+    const u = await h.user();
+    const widget = {
+      title: "A",
+      chartType: "line",
+      querySpec: { source: "occurrences", measure: "adherence", rangeDays: 30 },
+    };
+    const d = (await u.post("/api/v1/dashboards", { name: "Main", widgets: [widget] })).body.data;
+    const res = await u.patch(`/api/v1/dashboards/${d.id}`, { name: "Renamed" });
+    expect(res.body.data.name).toBe("Renamed");
+    expect(res.body.data.widgets).toHaveLength(1);
   });
   it("saves dashboards with widgets", async () => {
     const u = await h.user();

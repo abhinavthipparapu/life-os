@@ -87,7 +87,10 @@ export async function enqueueOccurrenceAction(
   };
   await queue.put(operation);
   // Each accepted action bumps the server version, so the next queued one must expect that.
-  if (cached) await store.put({ ...cached, status: STATUS[action], version: cached.version + 1 });
+  if (cached) {
+    const note = typeof payload.note === "string" ? payload.note : cached.note;
+    await store.put({ ...cached, status: STATUS[action], version: cached.version + 1, note });
+  }
   await tx.done;
   return operation;
 }

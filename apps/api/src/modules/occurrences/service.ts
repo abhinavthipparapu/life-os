@@ -1,4 +1,5 @@
 import { localDateOf } from "@lifeos/analytics-core";
+import { RATING_RANGE } from "@lifeos/contracts";
 import type { Prisma, PrismaClient } from "@lifeos/db";
 import { audit } from "../../shared/audit.js";
 import { badRequest, conflict, notFound } from "../../shared/http.js";
@@ -48,11 +49,28 @@ export async function applyOccurrenceAction(
     where: { id },
     include: {
       task: {
-        select: { plannerId: true, deletedAt: true, planner: { select: { timezone: true } } },
+        select: {
+          type: true,
+          plannerId: true,
+          deletedAt: true,
+          planner: { select: { timezone: true } },
+        },
       },
     },
   });
   if (occurrence.task.deletedAt) throw notFound("Occurrence");
+
+  if (
+    action === "complete" &&
+    occurrence.task.type === "rating" &&
+    input.value !== undefined &&
+    (input.value < RATING_RANGE.min || input.value > RATING_RANGE.max)
+  ) {
+    throw badRequest(
+      `Ratings run from ${RATING_RANGE.min} to ${RATING_RANGE.max}`,
+      "invalid_rating",
+    );
+  }
 
   const status = targetStatus(action, input.kind);
   if (occurrence.status === status)

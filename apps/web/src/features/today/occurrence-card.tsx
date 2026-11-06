@@ -1,3 +1,4 @@
+import { RATING_RANGE, usesTarget } from "@lifeos/contracts";
 import { Button } from "@lifeos/ui/components/button";
 import { Input } from "@lifeos/ui/components/input";
 import { cn } from "@lifeos/ui/lib/utils";
@@ -22,9 +23,11 @@ const LABEL: Record<Occurrence["status"], string> = {
 export function TaskCompletionControl({
   occurrence,
   value,
+  note,
 }: {
   occurrence: Occurrence;
   value?: number;
+  note?: string;
 }) {
   const done = occurrence.status === "completed";
   const toggle = async () => {
@@ -33,7 +36,10 @@ export function TaskCompletionControl({
       return;
     }
     haptic();
-    await actOnOccurrence(occurrence, "complete", value === undefined ? {} : { value });
+    await actOnOccurrence(occurrence, "complete", {
+      ...(value === undefined ? {} : { value }),
+      ...(note ? { note } : {}),
+    });
     toast("Marked done", {
       duration: 8000,
       action: {
@@ -81,7 +87,9 @@ export function OccurrenceCard({
 }) {
   const { task, status } = occurrence;
   const [value, setValue] = useState("");
+  const [note, setNote] = useState("");
   const open = status === "pending";
+  const rating = task.type === "rating";
   const measured = task.type === "quantity" || task.type === "duration" || task.type === "rating";
 
   return (
@@ -94,6 +102,7 @@ export function OccurrenceCard({
       <TaskCompletionControl
         occurrence={occurrence}
         value={value === "" ? undefined : Number(value)}
+        note={note.trim() || undefined}
       />
       <div className="min-w-0 flex-1">
         <Link to={`/app/tasks/${task.id}`} className="block truncate font-medium hover:underline">
@@ -109,7 +118,7 @@ export function OccurrenceCard({
             {task.planner.name}
           </span>
           {occurrence.scheduledAt && <span>{formatTime(occurrence.scheduledAt, timezone)}</span>}
-          {task.targetValue !== null && (
+          {usesTarget(task.type) && task.targetValue !== null && (
             <span>
               Target {task.targetValue} {task.targetUnit}
             </span>
@@ -117,6 +126,19 @@ export function OccurrenceCard({
           {LABEL[status] && <span>{LABEL[status]}</span>}
           {pending && <span className="font-medium text-ink">Pending sync</span>}
         </p>
+        {task.type === "text" && open && (
+          <Input
+            aria-label={`Note for ${task.title}`}
+            placeholder="Write a note"
+            maxLength={1000}
+            className="mt-2"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        )}
+        {task.type === "text" && !open && occurrence.note && (
+          <p className="mt-1 text-sm whitespace-pre-wrap">{occurrence.note}</p>
+        )}
       </div>
       {measured && open && (
         <Input
@@ -124,7 +146,11 @@ export function OccurrenceCard({
           inputMode="decimal"
           type="number"
           className="w-20"
-          placeholder={task.targetUnit ?? "Value"}
+          min={rating ? RATING_RANGE.min : 0}
+          max={rating ? RATING_RANGE.max : undefined}
+          placeholder={
+            rating ? `${RATING_RANGE.min}-${RATING_RANGE.max}` : (task.targetUnit ?? "Value")
+          }
           value={value}
           onChange={(e) => setValue(e.target.value)}
         />

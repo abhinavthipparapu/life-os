@@ -1,6 +1,7 @@
 import { localDateOf } from "@lifeos/analytics-core";
 import {
   LIMITS,
+  normalizeTaskTarget,
   type createTask,
   type reparentTask,
   type schedule,
@@ -179,7 +180,9 @@ export function taskService(prisma: PrismaClient) {
         const sortOrder = await tx.task.count({
           where: { plannerId, parentTaskId: input.parentTaskId ?? null, deletedAt: null },
         });
-        const task = await tx.task.create({ data: { ...data, userId, plannerId, sortOrder } });
+        const task = await tx.task.create({
+          data: { ...data, ...normalizeTaskTarget(data), userId, plannerId, sortOrder },
+        });
         await writeFieldValues(tx, plannerId, task.id, fields ?? {}, true);
         if (scheduleInput) {
           const row = await tx.taskSchedule.create({
@@ -206,9 +209,15 @@ export function taskService(prisma: PrismaClient) {
         await assertSection(tx, current.plannerId, input.sectionId);
         const { expectedVersion, schedule: scheduleInput, fields, ...data } = input;
         if (scheduleInput) assertRule(scheduleInput);
+        // Merged with the stored task, so changing only the type still clears values it can't use.
+        const target = normalizeTaskTarget({
+          type: data.type ?? current.type,
+          targetValue: data.targetValue === undefined ? current.targetValue : data.targetValue,
+          targetUnit: data.targetUnit === undefined ? current.targetUnit : data.targetUnit,
+        });
         const { count } = await tx.task.updateMany({
           where: { id, userId, version: expectedVersion },
-          data: { ...data, version: { increment: 1 } },
+          data: { ...data, ...target, version: { increment: 1 } },
         });
         if (count === 0) throw conflict("This task was changed elsewhere", current);
         if (fields) await writeFieldValues(tx, current.plannerId, id, fields, false);

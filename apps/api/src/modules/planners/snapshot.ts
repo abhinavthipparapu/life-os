@@ -1,4 +1,9 @@
-import { plannerSnapshot, type PlannerSnapshot, type PlanTask } from "@lifeos/contracts";
+import {
+  normalizeTaskTarget,
+  plannerSnapshot,
+  type PlannerSnapshot,
+  type PlanTask,
+} from "@lifeos/contracts";
 import type { Prisma } from "@lifeos/db";
 import { validateRule, materializeOccurrences } from "@lifeos/domain";
 import { localDateOf } from "@lifeos/analytics-core";
@@ -138,8 +143,7 @@ export async function materializeSnapshot(
         title: task.title,
         description: task.description ?? null,
         type: task.type,
-        targetValue: task.targetValue ?? null,
-        targetUnit: task.targetUnit ?? null,
+        ...normalizeTaskTarget(task),
       },
     });
     if (task.rrule) {

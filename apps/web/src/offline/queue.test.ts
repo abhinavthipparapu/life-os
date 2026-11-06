@@ -59,6 +59,11 @@ describe("offline queue", () => {
     const ids = (await readOccurrences("2026-03-01", "2026-03-01")).map((r) => r.id).sort();
     expect(ids).toEqual(["kept", "local"]);
   });
+  it("shows a note straight away, even offline", async () => {
+    await cacheOccurrences([row("a")]);
+    await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete", { note: "Felt good" });
+    expect((await readOccurrences("2026-03-01", "2026-03-01"))[0]!.note).toBe("Felt good");
+  });
   it("does not let a server refresh overwrite an unsynced change", async () => {
     await cacheOccurrences([row("a")]);
     await enqueueOccurrenceAction({ id: "a", version: 1 }, "complete");

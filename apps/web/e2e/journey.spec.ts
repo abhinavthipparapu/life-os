@@ -196,6 +196,42 @@ test("goals, metrics and entries can be edited, and a metric in use is protected
   await expect(page.getByText("No entries yet.")).toBeVisible();
 });
 
+test("task fields follow the task type, and text tasks take a note", async ({ page }) => {
+  await signUp(page);
+  await createPlannerWithTask(page, "Journal", "Reflect");
+  await scheduleDaily(page, "Reflect");
+  await page.getByRole("link", { name: "Done" }).click();
+  await page.getByRole("link", { name: "Reflect" }).click();
+
+  const dialog = page.getByRole("dialog");
+  const type = dialog.getByLabel("Type");
+  await expect(dialog.getByLabel("Target")).toHaveCount(0);
+  await expect(dialog.getByLabel("Unit")).toHaveCount(0);
+
+  await type.selectOption("quantity");
+  await expect(dialog.getByLabel("Target", { exact: true })).toBeVisible();
+  await expect(dialog.getByLabel("Unit")).toBeVisible();
+  await type.selectOption("duration");
+  await expect(dialog.getByLabel("Target (minutes)")).toBeVisible();
+  await expect(dialog.getByLabel("Unit")).toHaveCount(0);
+  await type.selectOption("rating");
+  await expect(dialog.getByText("Rated from 1 to 10")).toBeVisible();
+  await expect(dialog.getByLabel(/Target/)).toHaveCount(0);
+
+  await type.selectOption("text");
+  await dialog.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Saved")).toBeVisible();
+
+  await page.goto("/app/today");
+  await page.getByLabel("Note for Reflect").fill("A calm day");
+  await expectAccessible(page);
+  await page.getByRole("checkbox", { name: /Reflect/ }).click();
+  await expect(page.getByText("A calm day")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Sync status: Synced/ })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("A calm day")).toBeVisible();
+});
+
 test("template install gives an editable copy", async ({ page }) => {
   await signUp(page);
   await page.goto("/app/templates");
