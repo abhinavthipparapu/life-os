@@ -32,7 +32,9 @@ function TaskCheck({ task }: { task: TaskRow }) {
   }
   if (task.schedules.length > 0) {
     return (
-      <span className="w-11 text-center text-xs leading-tight text-ink-muted">Not due today</span>
+      <span className="w-14 shrink-0 text-center text-xs leading-tight text-ink-muted">
+        Not due today
+      </span>
     );
   }
   const tick = async () => {

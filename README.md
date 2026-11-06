@@ -32,6 +32,11 @@ pnpm dev                       # web on :5173, API on :4000, worker
 
 AI uses a mock provider until you set `AI_PROVIDER=openai`, `OPENAI_API_KEY` and `OPENAI_MODEL`.
 
+## Product guide
+
+The GIFs on the landing page are recorded from the real app. After changing a screen, stop `pnpm dev` and
+run `pnpm guide:record` to regenerate them. It needs Docker, and resets the local demo accounts.
+
 ## Check your work
 
 ```sh

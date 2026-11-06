@@ -4,7 +4,7 @@ import { Input } from "@lifeos/ui/components/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@lifeos/ui/components/tabs";
 import { Textarea } from "@lifeos/ui/components/textarea";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -92,11 +92,18 @@ function BlankForm() {
           </NativeSelect>
         </Field>
         <Field id="color" label="Color">
-          <input
-            id="color"
-            type="color"
-            className="h-11 w-full rounded-xl border bg-transparent p-1"
-            {...form.register("color")}
+          {/* Controlled: a registered colour input reports the browser's black, not the default. */}
+          <Controller
+            control={form.control}
+            name="color"
+            render={({ field }) => (
+              <input
+                id="color"
+                type="color"
+                className="h-11 w-full rounded-xl border bg-transparent p-1"
+                {...field}
+              />
+            )}
           />
         </Field>
       </div>

@@ -22,6 +22,41 @@ test("public pages load and protected pages redirect", async ({ page }) => {
   await expectAccessible(page);
 });
 
+test("landing page guide plays, pauses, and respects reduced motion", async ({ page, browser }) => {
+  await page.goto("/");
+  const clips = page.getByRole("region", { name: "See how it works" }).getByRole("img");
+  await expect(clips).toHaveCount(7);
+  const first = clips.first();
+  await first.scrollIntoViewIfNeeded();
+  await expect
+    .poll(() => first.evaluate((el: HTMLImageElement) => el.currentSrc))
+    .toContain("signup.gif");
+  await expect
+    .poll(() => first.evaluate((el: HTMLImageElement) => el.naturalWidth))
+    .toBeGreaterThan(0);
+  await expectAccessible(page);
+
+  await page.getByRole("button", { name: "Pause Create your account" }).click();
+  await expect
+    .poll(() => first.evaluate((el: HTMLImageElement) => el.currentSrc))
+    .toContain("signup.png");
+  await page.getByRole("button", { name: "Play Create your account" }).click();
+  await expect
+    .poll(() => first.evaluate((el: HTMLImageElement) => el.currentSrc))
+    .toContain("signup.gif");
+
+  const calm = await browser.newContext({ reducedMotion: "reduce" });
+  const still = await calm.newPage();
+  await still.goto("http://localhost:5173/");
+  const image = still.getByRole("region", { name: "See how it works" }).getByRole("img").first();
+  await image.scrollIntoViewIfNeeded();
+  await expect
+    .poll(() => image.evaluate((el: HTMLImageElement) => el.currentSrc))
+    .toContain("signup.png");
+  await expect(still.getByRole("button", { name: "Pause Create your account" })).toBeHidden();
+  await calm.close();
+});
+
 test("wrong password shows one generic message", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("nobody@example.com");
@@ -230,6 +265,23 @@ test("task fields follow the task type, and text tasks take a note", async ({ pa
   await expect(page.getByRole("button", { name: /Sync status: Synced/ })).toBeVisible();
   await page.reload();
   await expect(page.getByText("A calm day")).toBeVisible();
+});
+
+test("a new planner keeps its default colour, and a chosen one", async ({ page }) => {
+  await signUp(page);
+  await page.goto("/app/planners/new");
+  await expect(page.getByLabel("Color")).toHaveValue("#1fad82");
+  await page.getByLabel("Name").fill("Green");
+  await page.getByRole("button", { name: "Create and build" }).click();
+  await expect(page.getByRole("heading", { name: "Edit Green" })).toBeVisible();
+  await expect(page.getByLabel("Color")).toHaveValue("#1fad82");
+
+  await page.goto("/app/planners/new");
+  await page.getByLabel("Name").fill("Purple");
+  await page.getByLabel("Color").fill("#7468e8");
+  await page.getByRole("button", { name: "Create and build" }).click();
+  await expect(page.getByRole("heading", { name: "Edit Purple" })).toBeVisible();
+  await expect(page.getByLabel("Color")).toHaveValue("#7468e8");
 });
 
 test("template install gives an editable copy", async ({ page }) => {
